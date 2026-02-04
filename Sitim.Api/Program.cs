@@ -1,41 +1,46 @@
-
 using Microsoft.EntityFrameworkCore;
+using Sitim.Api.Options;
+using Sitim.Core.Services;
 using Sitim.Infrastructure.Data;
+using Sitim.Infrastructure.Orthanc;
 
-namespace Sitim.Api
+var builder = WebApplication.CreateBuilder(args);
+
+// Controllers
+builder.Services.AddControllers();
+
+// Swagger (better for rapid manual testing than the minimal OpenAPI endpoint)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Options
+builder.Services.Configure<OrthancOptions>(builder.Configuration.GetSection("Orthanc"));
+builder.Services.Configure<OhifOptions>(builder.Configuration.GetSection("Ohif"));
+
+// Database (PostgreSQL)
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+// Orthanc REST client
+builder.Services.AddHttpClient<IOrthancClient, OrthancClient>((sp, client) =>
 {
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OrthancOptions>>().Value;
+    client.BaseAddress = new Uri(opt.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
-            // Add services to the container.
+var app = builder.Build();
 
-            builder.Services.AddControllers();
-            // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-            builder.Services.AddOpenApi();
-
-            builder.Services.AddDbContext<AppDbContext>(opt =>
-                opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
-
-
-            var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.MapOpenApi();
-            }
-
-            app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
-        }
-    }
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();

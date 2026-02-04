@@ -1,6 +1,9 @@
-@Sitim.Api_HostAddress = http://localhost:5080
+@host = https://localhost:7006
 
-GET {{Sitim.Api_HostAddress}}/weatherforecast/
+### Health
+GET {{host}}/api/health
 Accept: application/json
 
-###
+### List studies
+GET {{host}}/api/studies
+Accept: application/json
