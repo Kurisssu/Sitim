@@ -1,9 +1,24 @@
-@host = https://localhost:7006
+@baseUrl = https://localhost:7006
 
-### Health
-GET {{host}}/api/health
-Accept: application/json
+### Local cache list (DB)
+GET {{baseUrl}}/api/local/studies
 
-### List studies
-GET {{host}}/api/studies
-Accept: application/json
+### Sync a study from Orthanc into DB (replace ID)
+POST {{baseUrl}}/api/local/studies/{{orthancStudyId}}/sync
+
+### Get study from DB
+GET {{baseUrl}}/api/local/studies/{{orthancStudyId}}
+
+### Sync ALL studies from Orthanc into DB
+POST {{baseUrl}}/api/local/studies/sync-all
+
+### Import DICOM (multiple files)
+POST {{Sitim.Api_HostAddress}}/api/studies/import
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="files"; filename="example.dcm"
+Conent-Type: application/dicom
+
+< ./path/to/example.dcm
+------boundary--

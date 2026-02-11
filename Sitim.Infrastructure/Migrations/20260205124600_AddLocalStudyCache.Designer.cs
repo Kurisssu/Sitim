@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Sitim.Infrastructure.Data;
@@ -11,9 +12,11 @@ using Sitim.Infrastructure.Data;
 namespace Sitim.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260205124600_AddLocalStudyCache")]
+    partial class AddLocalStudyCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,66 +24,6 @@ namespace Sitim.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("Sitim.Core.Entities.AnalysisJob", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("text")
-                        .HasColumnName("error_message");
-
-                    b.Property<DateTime?>("FinishedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at_utc");
-
-                    b.Property<string>("HangfireJobId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("hangfire_job_id");
-
-                    b.Property<string>("ModelKey")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("model_key");
-
-                    b.Property<string>("OrthancStudyId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("orthanc_study_id");
-
-                    b.Property<string>("ResultJsonPath")
-                        .HasColumnType("text")
-                        .HasColumnName("result_json_path");
-
-                    b.Property<DateTime?>("StartedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at_utc");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("StudyArchivePath")
-                        .HasColumnType("text")
-                        .HasColumnName("study_archive_path");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrthancStudyId");
-
-                    b.ToTable("analysis_jobs", (string)null);
-                });
 
             modelBuilder.Entity("Sitim.Core.Entities.ImagingSeries", b =>
                 {
@@ -170,10 +113,12 @@ namespace Sitim.Infrastructure.Migrations
                         .HasColumnName("created_at_utc");
 
                     b.Property<string>("PatientId")
+                        .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
                     b.Property<string>("PatientName")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
