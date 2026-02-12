@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Sitim.Core.Services;
 using System.IO.Compression;
+using Sitim.Api.Security;
 
 namespace Sitim.Api.Controllers
 {
@@ -13,6 +15,7 @@ namespace Sitim.Api.Controllers
     /// Why this exists:
     /// - In later steps, Blazor UI will upload through this API, not through Orthanc UI.
     /// </summary>
+    [Authorize(Roles = SitimRoles.CanImport)]
     [ApiController]
     [Route("api/studies")]
     public sealed class StudiesImportController : ControllerBase

@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sitim.Api.Services;
 using Sitim.Core.Entities;
 using Sitim.Core.Models;
 using Sitim.Infrastructure.Data;
+using Sitim.Api.Security;
 
 namespace Sitim.Api.Controllers
 {
+    [Authorize(Roles = SitimRoles.CanAnalyze)]
     [ApiController]
     [Route("api/[controller]")]
     public sealed class AnalysesController : ControllerBase

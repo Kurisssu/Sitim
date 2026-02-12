@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Sitim.Core.Services;
+using Sitim.Api.Security;
 
 namespace Sitim.Api.Controllers
 {
+    [Authorize(Roles = SitimRoles.AnyStaff)]
     [ApiController]
     [Route("api/local/studies")]
     public sealed class LocalStudiesController : ControllerBase

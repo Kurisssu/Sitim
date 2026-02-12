@@ -3,9 +3,12 @@ using Microsoft.Extensions.Options;
 using Sitim.Api.Options;
 using Sitim.Core.Models;
 using Sitim.Core.Services;
+using Sitim.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Sitim.Api.Controllers
 {
+    [Authorize(Roles = SitimRoles.AnyStaff)]
     [ApiController]
     [Route("api/studies")]
     public sealed class StudiesController : ControllerBase
