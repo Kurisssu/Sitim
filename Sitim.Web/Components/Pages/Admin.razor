@@ -1,0 +1,155 @@
+@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+@inject SitimApiClient Api
+@inject NotificationService Notification
+@inject NavigationManager Navigation
+@inject IConfiguration Config
+
+<PageTitle>Administrare — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenText Text="Administrare" TextStyle="TextStyle.DisplayH5" />
+
+    @* ── Health Check ───────────────────────────────── *@
+    <RadzenCard>
+        <RadzenText Text="Stare sistem" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenRow AlignItems="AlignItems.Center" Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenText Text="API Backend:" TextStyle="TextStyle.Body1" class="rz-mb-0" />
+                    @if (apiHealthy.HasValue)
+                    {
+                        @if (apiHealthy.Value)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Online" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Offline" />
+                        }
+                    }
+                    else
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Neverificat" />
+                    }
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenButton Text="Verifică" Icon="health_and_safety" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                              Click="@CheckHealth" IsBusy="@isCheckingHealth" BusyText="Se verifică..." />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    @* ── Acțiuni rapide ─────────────────────────────── *@
+    <RadzenCard>
+        <RadzenText Text="Acțiuni rapide" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenStack Gap="1rem">
+            <RadzenRow AlignItems="AlignItems.Center">
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenStack>
+                        <RadzenText Text="Re-rulare analize neterminate" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
+                        <RadzenText Text="Re-programează toate analizele cu status 'În așteptare' sau 'Eșuat' pentru execuție."
+                                    TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenButton Text="Enqueue Unfinished" Icon="replay" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                  Click="@OnEnqueueUnfinished" IsBusy="@isEnqueuing" BusyText="Se procesează..." />
+                </RadzenColumn>
+            </RadzenRow>
+
+            <RadzenRow AlignItems="AlignItems.Center">
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenStack>
+                        <RadzenText Text="Sincronizare completă Orthanc → DB" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
+                        <RadzenText Text="Sincronizează toate studiile din Orthanc în baza de date locală."
+                                    TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenButton Text="Sync All" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                  Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="Se sincronizează..." />
+                </RadzenColumn>
+            </RadzenRow>
+        </RadzenStack>
+    </RadzenCard>
+
+    @* ── Linkuri externe ────────────────────────────── *@
+    <RadzenCard>
+        <RadzenText Text="Linkuri externe" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenStack Gap="0.5rem">
+            <RadzenLink Text="Hangfire Dashboard" Path="@hangfireUrl" Target="_blank" Icon="open_in_new"
+                        Style="font-size: 1rem;" />
+            <RadzenLink Text="Orthanc Explorer" Path="@orthancUrl" Target="_blank" Icon="open_in_new"
+                        Style="font-size: 1rem;" />
+            <RadzenLink Text="Swagger API Docs" Path="@swaggerUrl" Target="_blank" Icon="open_in_new"
+                        Style="font-size: 1rem;" />
+        </RadzenStack>
+    </RadzenCard>
+</RadzenStack>
+
+@code {
+    private bool? apiHealthy;
+    private bool isCheckingHealth;
+    private bool isEnqueuing;
+    private bool isSyncing;
+
+    private string apiBaseUrl = "https://localhost:7006";
+    private string hangfireUrl => $"{apiBaseUrl}/hangfire";
+    private string orthancUrl => "http://localhost:8042";
+    private string swaggerUrl => $"{apiBaseUrl}/swagger";
+
+    protected override void OnInitialized()
+    {
+        apiBaseUrl = (Config["Api:BaseUrl"] ?? "https://localhost:7006").TrimEnd('/');
+    }
+
+    private async Task CheckHealth()
+    {
+        isCheckingHealth = true;
+        apiHealthy = await Api.HealthCheckAsync();
+        isCheckingHealth = false;
+
+        Notification.Notify(
+            apiHealthy.Value ? NotificationSeverity.Success : NotificationSeverity.Error,
+            "Health Check",
+            apiHealthy.Value ? "API-ul este online." : "API-ul nu răspunde.");
+    }
+
+    private async Task OnEnqueueUnfinished()
+    {
+        isEnqueuing = true;
+        try
+        {
+            var count = await Api.EnqueueUnfinishedAsync();
+            Notification.Notify(NotificationSeverity.Success, "Enqueue", $"{count} analize re-programate.");
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isEnqueuing = false;
+        }
+    }
+
+    private async Task OnSyncAll()
+    {
+        isSyncing = true;
+        try
+        {
+            var count = await Api.SyncAllStudiesAsync();
+            Notification.Notify(NotificationSeverity.Success, "Sincronizare", $"{count} studii sincronizate.");
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isSyncing = false;
+        }
+    }
+}

@@ -1,0 +1,50 @@
+@inject NavigationManager NavigationManager
+<!DOCTYPE html>
+<html lang="ro">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SITIM — Diagnostic Imagistic</title>
+    <base href="@NavigationManager.BaseUri" />
+    <RadzenTheme Theme="standard-dark" />
+    <link rel="stylesheet" href="css/site.css" />
+    <link rel="stylesheet" href="@Assets["Sitim.Web.styles.css"]" />
+    <link rel="icon" href="favicon.ico" />
+    <HeadOutlet @rendermode="@InteractiveServer" />
+</head>
+
+<body>
+    <CascadingAuthenticationState>
+        <Routes @rendermode="@InteractiveServer" />
+    </CascadingAuthenticationState>
+    <ReconnectModal />
+    <script src="_framework/blazor.web.js"></script>
+    <script src="_content/Radzen.Blazor/Radzen.Blazor.js?v=@(typeof(Radzen.Colors).Assembly.GetName().Version)"></script>
+    <script src="js/auth.js"></script>
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; }
+
+    [Inject]
+    private ThemeService ThemeService { get; set; }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        if (HttpContext != null)
+        {
+            var theme = HttpContext.Request.Cookies["Sitim.WebTheme"];
+
+            if (!string.IsNullOrEmpty(theme))
+            {
+                ThemeService.SetTheme(theme, false);
+            }
+        }
+    }
+}

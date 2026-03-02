@@ -1,0 +1,75 @@
+@inherits LayoutComponentBase
+@inject SitimAuthStateProvider AuthProvider
+@inject NavigationManager NavigationManager
+@inject DialogService DialogService
+@inject NotificationService NotificationService
+@inject AuthTokenStore TokenStore
+
+<RadzenComponents />
+
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <RadzenLayout>
+            <RadzenHeader>
+                <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0">
+                    <RadzenColumn Size="5">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                            <RadzenSidebarToggle Click="@SidebarToggleClick"></RadzenSidebarToggle>
+                            <RadzenText Text="SITIM" TextStyle="TextStyle.H5" class="rz-mb-0 rz-display-none rz-display-sm-inline" style="color: var(--rz-text-color);" />
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="7">
+                        <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-px-2">
+                            <RadzenIcon Icon="person" style="color: var(--rz-text-color);" />
+                            <RadzenText Text="@TokenStore.Email" TextStyle="TextStyle.Body2" class="rz-mb-0" style="color: var(--rz-text-color);" />
+                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@string.Join(", ", TokenStore.Roles)" />
+                            <RadzenButton Text="Deconectare" Icon="logout" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="@OnLogout" />
+                            <RadzenAppearanceToggle />
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenHeader>
+            <RadzenBody Expanded="@sidebarExpanded">
+                <RadzenRow class="rz-mx-auto rz-px-4 rz-pt-2 rz-pt-md-4 rz-pt-lg-6 rz-pt-xl-12 rz-pb-2 rz-pb-lg-12" Style="max-width: 1440px;">
+                    <RadzenColumn Size="12">
+                        @Body
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenBody>
+            <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+                <RadzenStack AlignItems="Radzen.AlignItems.Center" class="rz-py-4 rz-py-lg-6" Style="padding: var(--rz-panel-menu-item-padding); border-bottom: var(--rz-panel-menu-item-border);">
+                    <RadzenIcon Icon="biotech" style="font-size: 60px; color: var(--rz-primary);" />
+                    <RadzenText Text="Suportul diagnosticului imagistic" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
+                </RadzenStack>
+                <RadzenPanelMenu>
+                    <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="" />
+                    <AuthorizeView Roles="Admin,Technician">
+                        <RadzenPanelMenuItem Text="Import studii" Icon="cloud_upload" Path="import" />
+                    </AuthorizeView>
+                    <RadzenPanelMenuItem Text="Analize" Icon="science" Path="analyses" />
+                    <AuthorizeView Roles="Admin">
+                        <RadzenPanelMenuItem Text="Administrare" Icon="admin_panel_settings" Path="admin" />
+                    </AuthorizeView>
+                </RadzenPanelMenu>
+            </RadzenSidebar>
+        </RadzenLayout>
+    </Authorized>
+    <NotAuthorized>
+        @Body
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    bool sidebarExpanded = true;
+
+    void SidebarToggleClick()
+    {
+        sidebarExpanded = !sidebarExpanded;
+    }
+
+    async Task OnLogout()
+    {
+        await AuthProvider.LogoutAsync();
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+}

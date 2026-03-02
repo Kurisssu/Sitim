@@ -1,0 +1,168 @@
+@page "/import"
+@attribute [Authorize(Roles = "Admin,Technician")]
+@inject SitimApiClient Api
+@inject NotificationService Notification
+@inject NavigationManager Navigation
+
+<PageTitle>Import studii — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenText Text="Import studii DICOM" TextStyle="TextStyle.DisplayH5" />
+    <RadzenCard>
+        <RadzenStack Gap="1.5rem">
+            <RadzenFormField Text="Fișier arhivă (.zip) sau fișiere DICOM" Variant="Variant.Outlined" Style="width: 100%;">
+                <ChildContent>
+                    <InputFile OnChange="@OnFileSelected" multiple accept=".zip,.dcm,.dicom" class="rz-textbox" style="padding: 0.5rem;" />
+                </ChildContent>
+            </RadzenFormField>
+
+            @if (selectedFiles.Count > 0)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark" AllowClose="false" Size="AlertSize.Small">
+                    @selectedFiles.Count fișier(e) selectat(e) — @FormatFileSize(totalSize)
+                </RadzenAlert>
+            }
+
+            <RadzenButton Text="Importă" Icon="cloud_upload" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large"
+                          Click="@OnImport" Disabled="@(selectedFiles.Count == 0 || isUploading)"
+                          IsBusy="@isUploading" BusyText="Se importă..." Style="width: fit-content;" />
+
+            @if (isUploading)
+            {
+                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Value="100" Mode="ProgressBarMode.Indeterminate" />
+            }
+        </RadzenStack>
+    </RadzenCard>
+
+    @* ── Rezultatul importului ─────────────────────── *@
+    @if (importResult is not null)
+    {
+        <RadzenCard>
+            <RadzenText Text="Rezultat import" TextStyle="TextStyle.H6" class="rz-mb-3" />
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="upload_file" style="font-size: 36px; color: var(--rz-success);" />
+                        <RadzenText Text="@importResult.UploadedInstances.ToString()" TextStyle="TextStyle.DisplayH4" class="rz-mb-0" />
+                        <RadzenText Text="Instanțe încărcate" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="folder" style="font-size: 36px; color: var(--rz-info);" />
+                        <RadzenText Text="@importResult.OrthancStudyIds.Count.ToString()" TextStyle="TextStyle.DisplayH4" class="rz-mb-0" />
+                        <RadzenText Text="Studii detectate" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="sync" style="font-size: 36px; color: var(--rz-primary);" />
+                        <RadzenText Text="@importResult.SyncedStudies.ToString()" TextStyle="TextStyle.DisplayH4" class="rz-mb-0" />
+                        <RadzenText Text="Studii sincronizate" TextStyle="TextStyle.Caption" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            @if (importResult.Errors.Count > 0)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false" class="rz-mt-3" Title="Avertismente">
+                    <ul>
+                        @foreach (var err in importResult.Errors)
+                        {
+                            <li>@err</li>
+                        }
+                    </ul>
+                </RadzenAlert>
+            }
+
+            @if (importResult.OrthancStudyIds.Count > 0)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" class="rz-mt-3" JustifyContent="JustifyContent.Center">
+                    <RadzenButton Text="Mergi la Worklist" Icon="list_alt" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@(() => Navigation.NavigateTo("/"))" />
+                    @if (importResult.OrthancStudyIds.Count == 1)
+                    {
+                        <RadzenButton Text="Deschide studiul" Icon="visibility" ButtonStyle="ButtonStyle.Secondary"
+                                      Click="@(() => Navigation.NavigateTo($"/studies/{importResult.OrthancStudyIds[0]}"))" />
+                    }
+                </RadzenStack>
+            }
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    private List<IBrowserFile> selectedFiles = [];
+    private long totalSize;
+    private bool isUploading;
+    private SitimApiClient.ImportResult? importResult;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFiles = e.GetMultipleFiles(100).ToList();
+        totalSize = selectedFiles.Sum(f => f.Size);
+        importResult = null;
+    }
+
+    private async Task OnImport()
+    {
+        if (selectedFiles.Count == 0) return;
+
+        isUploading = true;
+        importResult = null;
+
+        try
+        {
+            // Determine if it's a single ZIP or multiple DICOM files
+            var firstFile = selectedFiles[0];
+            if (selectedFiles.Count == 1 && firstFile.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                // ZIP archive
+                await using var stream = firstFile.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
+                importResult = await Api.ImportArchiveAsync(stream, firstFile.Name);
+            }
+            else
+            {
+                // Multiple DICOM files
+                var fileData = new List<(Stream, string)>();
+                foreach (var file in selectedFiles)
+                {
+                    var stream = file.OpenReadStream(maxAllowedSize: 512L * 1024 * 1024);
+                    fileData.Add((stream, file.Name));
+                }
+
+                importResult = await Api.ImportFilesAsync(fileData);
+
+                // Dispose streams
+                foreach (var (stream, _) in fileData)
+                    await stream.DisposeAsync();
+            }
+
+            if (importResult is not null)
+            {
+                Notification.Notify(NotificationSeverity.Success, "Import reușit",
+                    $"{importResult.UploadedInstances} instanțe importate, {importResult.SyncedStudies} studii sincronizate.");
+            }
+            else
+            {
+                Notification.Notify(NotificationSeverity.Error, "Eroare import", "Serverul nu a returnat un rezultat.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare import", ex.Message);
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024.0 * 1024):F1} MB";
+        return $"{bytes / (1024.0 * 1024 * 1024):F2} GB";
+    }
+}

@@ -1,0 +1,243 @@
+@page "/studies/{OrthancStudyId}"
+@attribute [Authorize]
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+@inject DialogService Dialog
+
+<PageTitle>Studiu — SITIM</PageTitle>
+
+@if (isLoading)
+{
+    <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+}
+else if (study is null)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false">
+        Studiul nu a fost găsit.
+    </RadzenAlert>
+}
+else
+{
+    <RadzenStack Gap="1rem">
+        @* ── Header ──────────────────────────────────────── *@
+        <RadzenRow AlignItems="AlignItems.Center">
+            <RadzenColumn Size="12" SizeMD="8">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
+                                  Click="@(() => Navigation.NavigateTo("/"))" title="Înapoi la Worklist" />
+                    <RadzenText Text="@($"Studiu: {study.PatientName ?? "N/A"}")" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="4">
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                    <RadzenButton Text="Sincronizare" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                  Click="@OnSync" />
+                    <AuthorizeView Roles="Admin,Doctor,Technician">
+                        <RadzenButton Text="Pornește Analiză" Icon="science" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                                      Click="@OnStartAnalysis" />
+                    </AuthorizeView>
+                </RadzenStack>
+            </RadzenColumn>
+        </RadzenRow>
+
+        @* ── Detalii studiu ──────────────────────────────── *@
+        <RadzenCard>
+            <RadzenText Text="Detalii studiu" TextStyle="TextStyle.H6" class="rz-mb-3" />
+            <RadzenRow>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenFormField Text="Pacient" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientName ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="ID Pacient" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientId ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="Data studiu" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@FormatStudyDate(study.StudyDate)" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                    </RadzenStack>
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="6">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenFormField Text="Orthanc ID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@study.OrthancStudyId" Style="width: 100%; font-family: monospace;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="Study Instance UID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.StudyInstanceUid ?? "—")" Style="width: 100%; font-family: monospace; font-size: 0.85rem;" /></ChildContent></RadzenFormField>
+                        <div>
+                            <RadzenText Text="Modalități" TextStyle="TextStyle.Body2" class="rz-mb-1" style="color: var(--rz-text-tertiary-color);" />
+                            @foreach (var mod in study.ModalitiesInStudy)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@mod" class="rz-mr-1" />
+                            }
+                        </div>
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+            <RadzenText Text="@($"Serii: {study.SeriesOrthancIds.Count}")" TextStyle="TextStyle.Caption" class="rz-mt-3" style="color: var(--rz-text-tertiary-color);" />
+        </RadzenCard>
+
+        @* ── OHIF Viewer ─────────────────────────────────── *@
+        <RadzenCard>
+            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-3">
+                <RadzenColumn>
+                    <RadzenText Text="Vizualizare OHIF" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                </RadzenColumn>
+                <RadzenColumn>
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                        @if (!string.IsNullOrWhiteSpace(viewerUrl))
+                        {
+                            <RadzenButton Text="Deschide în tab nou" Icon="open_in_new" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                          Click="@OpenViewerExternal" />
+                        }
+                        else
+                        {
+                            <RadzenButton Text="Încarcă viewer" Icon="play_arrow" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="Se încarcă..." />
+                        }
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+
+            @if (!string.IsNullOrWhiteSpace(viewerUrl))
+            {
+                <div style="width: 100%; height: 600px; border: 1px solid var(--rz-border-color); border-radius: var(--rz-border-radius);">
+                    <iframe src="@viewerUrl" style="width: 100%; height: 100%; border: none; border-radius: var(--rz-border-radius);" allowfullscreen></iframe>
+                </div>
+            }
+            else
+            {
+                <RadzenText Text="Apasă 'Încarcă viewer' pentru a deschide vizualizatorul OHIF." TextStyle="TextStyle.Body2"
+                            style="color: var(--rz-text-tertiary-color);" TextAlign="TextAlign.Center" class="rz-py-6" />
+            }
+        </RadzenCard>
+
+        @* ── Analize pentru acest studiu ──────────────────── *@
+        <RadzenCard>
+            <RadzenText Text="Analize" TextStyle="TextStyle.H6" class="rz-mb-3" />
+            @if (analyses.Count == 0)
+            {
+                <RadzenText Text="Nu există analize pentru acest studiu." TextStyle="TextStyle.Body2" style="color: var(--rz-text-tertiary-color);" />
+            }
+            else
+            {
+                <RadzenDataGrid Data="@analyses" TItem="AnalysisJobDto" AllowSorting="true" Density="Density.Compact">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="AnalysisJobDto" Property="ModelKey" Title="Model" Width="120px" />
+                        <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Status" Width="120px">
+                            <Template Context="job">
+                                <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(job.Status)" Text="@job.Status" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AnalysisJobDto" Property="CreatedAtUtc" Title="Creat" Width="160px">
+                            <Template Context="job">@job.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</Template>
+                        </RadzenDataGridColumn>
+                        <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Acțiuni" Width="120px" Sortable="false" TextAlign="TextAlign.Center">
+                            <Template Context="job">
+                                <RadzenButton Icon="info" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
+                                              Click="@(() => Navigation.NavigateTo($"/analyses/{job.Id}"))" title="Detalii analiză" />
+                            </Template>
+                        </RadzenDataGridColumn>
+                    </Columns>
+                </RadzenDataGrid>
+            }
+        </RadzenCard>
+    </RadzenStack>
+}
+
+@code {
+    [Parameter] public string OrthancStudyId { get; set; } = "";
+
+    private Sitim.Core.Models.StudyDetails? study;
+    private List<AnalysisJobDto> analyses = [];
+    private string? viewerUrl;
+    private bool isLoading = true;
+    private bool isLoadingViewer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            study = await Api.GetLocalStudyAsync(OrthancStudyId);
+            if (study is not null)
+            {
+                analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadViewerUrl()
+    {
+        isLoadingViewer = true;
+        try
+        {
+            viewerUrl = await Api.GetViewerLinkAsync(OrthancStudyId);
+            if (string.IsNullOrWhiteSpace(viewerUrl))
+                Notification.Notify(NotificationSeverity.Warning, "Viewer", "Nu s-a putut obține link-ul OHIF.");
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare viewer", ex.Message);
+        }
+        finally
+        {
+            isLoadingViewer = false;
+        }
+    }
+
+    private async Task OpenViewerExternal()
+    {
+        if (!string.IsNullOrWhiteSpace(viewerUrl))
+            Navigation.NavigateTo(viewerUrl, forceLoad: true);
+    }
+
+    private async Task OnSync()
+    {
+        try
+        {
+            study = await Api.SyncStudyAsync(OrthancStudyId);
+            analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
+            Notification.Notify(NotificationSeverity.Success, "Sincronizat", "Studiul a fost sincronizat din Orthanc.");
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+    }
+
+    private async Task OnStartAnalysis()
+    {
+        var result = await Api.CreateAnalysisAsync(OrthancStudyId);
+        if (result is not null)
+        {
+            Notification.Notify(NotificationSeverity.Success, "Analiză pornită", $"Job {result.Id} creat cu succes.");
+            analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
+            Navigation.NavigateTo($"/analyses/{result.Id}");
+        }
+        else
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut porni analiza.");
+        }
+    }
+
+    private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
+    {
+        "Queued" => BadgeStyle.Warning,
+        "Running" => BadgeStyle.Info,
+        "Succeeded" => BadgeStyle.Success,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static string FormatStudyDate(string? date)
+    {
+        if (string.IsNullOrWhiteSpace(date) || date.Length < 8) return date ?? "—";
+        return $"{date[6..8]}.{date[4..6]}.{date[0..4]}";
+    }
+}

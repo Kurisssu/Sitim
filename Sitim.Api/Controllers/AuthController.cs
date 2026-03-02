@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Sitim.Api.Models;
 using Sitim.Api.Security;
 using Sitim.Infrastructure.Identity;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Sitim.Api.Controllers
 {
@@ -48,8 +50,11 @@ namespace Sitim.Api.Controllers
         [HttpGet("me")]
         public async Task<ActionResult<MeResponse>> Me()
         {
-            var sub = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
-            if (!Guid.TryParse(sub, out var userId))
+            var idStr =
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (!Guid.TryParse(idStr, out var userId))
                 return Unauthorized();
 
             var user = await _users.FindByIdAsync(userId.ToString());

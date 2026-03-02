@@ -1,0 +1,138 @@
+@page "/"
+@attribute [Authorize]
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+@inject SitimAuthStateProvider AuthProvider
+
+<PageTitle>Lista de studii — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenText Text="Lista de studii" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="6">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                <RadzenButton Text="Sincronizare Orthanc" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
+                              Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="Sincronizare..." Size="ButtonSize.Small" />
+                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Light"
+                              Click="@LoadStudies" Size="ButtonSize.Small" />
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (isLoading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenDataGrid Data="@studies" TItem="StudySummary" AllowFiltering="true" AllowSorting="true"
+                        AllowPaging="true" PageSize="15" PagerHorizontalAlign="HorizontalAlign.Center"
+                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                        RowClick="@OnRowClick" Style="cursor: pointer;"
+                        EmptyText="Nu există studii. Apasă 'Sincronizare Orthanc' sau importă studii noi.">
+            <Columns>
+                <RadzenDataGridColumn TItem="StudySummary" Property="PatientName" Title="Pacient" Width="200px" />
+                <RadzenDataGridColumn TItem="StudySummary" Property="PatientId" Title="ID Pacient" Width="140px" />
+                <RadzenDataGridColumn TItem="StudySummary" Property="StudyDate" Title="Data studiu" Width="130px">
+                    <Template Context="study">
+                        @FormatStudyDate(study.StudyDate)
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="StudySummary" Title="Modalități" Width="120px" Sortable="false" Filterable="false">
+                    <Template Context="study">
+                        @foreach (var mod in study.ModalitiesInStudy)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@mod" class="rz-mr-1" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="StudySummary" Property="OrthancStudyId" Title="Orthanc ID" Width="180px">
+                    <Template Context="study">
+                        <RadzenText Text="@Truncate(study.OrthancStudyId, 16)" TextStyle="TextStyle.Caption" style="font-family: monospace;" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="StudySummary" Title="Acțiuni" Width="140px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                    <Template Context="study">
+                        <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
+                                      Click="@(args => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</RadzenStack>
+
+@code {
+    private List<StudySummary> studies = [];
+    private bool isLoading = true;
+    private bool isSyncing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudies();
+    }
+
+    private async Task LoadStudies()
+    {
+        isLoading = true;
+        try
+        {
+            studies = await Api.GetLocalStudiesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut conecta la API. Verificați dacă serverul API rulează.");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnSyncAll()
+    {
+        isSyncing = true;
+        try
+        {
+            var count = await Api.SyncAllStudiesAsync();
+            Notification.Notify(NotificationSeverity.Success, "Sincronizare completă", $"{count} studii sincronizate din Orthanc.");
+            await LoadStudies();
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare sincronizare", ex.Message);
+        }
+        finally
+        {
+            isSyncing = false;
+        }
+    }
+
+    private void OnRowClick(DataGridRowMouseEventArgs<StudySummary> args)
+    {
+        GoToStudy(args.Data.OrthancStudyId);
+    }
+
+    private void GoToStudy(string orthancStudyId)
+    {
+        Navigation.NavigateTo($"/studies/{orthancStudyId}");
+    }
+
+    private static string FormatStudyDate(string? date)
+    {
+        if (string.IsNullOrWhiteSpace(date) || date.Length < 8)
+            return date ?? "—";
+
+        // DICOM date format: YYYYMMDD → DD.MM.YYYY
+        return $"{date[6..8]}.{date[4..6]}.{date[0..4]}";
+    }
+
+    private static string Truncate(string? text, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "—";
+        return text.Length <= maxLen ? text : text[..maxLen] + "…";
+    }
+}

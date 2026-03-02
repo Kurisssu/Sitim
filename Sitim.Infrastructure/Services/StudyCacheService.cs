@@ -3,6 +3,7 @@ using Sitim.Core.Entities;
 using Sitim.Core.Models;
 using Sitim.Core.Services;
 using Sitim.Infrastructure.Data;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Sitim.Infrastructure.Services
 {
@@ -15,11 +16,13 @@ namespace Sitim.Infrastructure.Services
     {
         private readonly AppDbContext _db;
         private readonly IOrthancClient _orthanc;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public StudyCacheService(AppDbContext db, IOrthancClient orthanc)
+        public StudyCacheService(AppDbContext db, IOrthancClient orthanc, IServiceScopeFactory scopeFactory)
         {
             _db = db;
             _orthanc = orthanc;
+            _scopeFactory = scopeFactory;
         }
 
         public async Task<IReadOnlyList<StudySummary>> ListLocalAsync(CancellationToken ct)
@@ -45,9 +48,23 @@ namespace Sitim.Infrastructure.Services
             return s is null ? null : ToDetails(s);
         }
 
-        public async Task<StudyDetails> SyncFromOrthancAsync(string orthancStudyId, CancellationToken ct)
+        public async Task<StudyDetails?> SyncFromOrthancAsync(string orthancStudyId, CancellationToken ct)
         {
             var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+
+            // If study is missing in Orthanc (null), ensure it is removed from local DB
+            if (d is null)
+            {
+                var existing = await _db.ImagingStudies
+                    .FirstOrDefaultAsync(x => x.OrthancStudyId == orthancStudyId, ct);
+                
+                if (existing is not null)
+                {
+                    _db.ImagingStudies.Remove(existing);
+                    await _db.SaveChangesAsync(ct);
+                }
+                return null;
+            }
 
             // 1) Patient upsert (best-effort)
             Patient? patient = null;
@@ -130,17 +147,34 @@ namespace Sitim.Infrastructure.Services
 
         public async Task<int> SyncAllFromOrthancAsync(CancellationToken ct)
         {
-            var ids = await _orthanc.GetStudyIdsAsync(ct);
-            if (ids.Count == 0) return 0;
+            var remoteIds = await _orthanc.GetStudyIdsAsync(ct);
+            var localIds = await _db.ImagingStudies.Select(x => x.OrthancStudyId).ToListAsync(ct);
 
-            // Limited parallelism
+            // 1. Identify studies present locally but missing in Orthanc (deleted)
+            var idsToDelete = localIds.Except(remoteIds).ToList();
+            if (idsToDelete.Count > 0)
+            {
+                var studiesToDelete = await _db.ImagingStudies
+                    .Where(x => idsToDelete.Contains(x.OrthancStudyId))
+                    .ToListAsync(ct);
+                
+                _db.ImagingStudies.RemoveRange(studiesToDelete);
+                await _db.SaveChangesAsync(ct);
+            }
+
+            if (remoteIds.Count == 0) return 0;
+
+            // 2. Sync existing/new studies from Orthanc
+            // Limited parallelism with separate scopes to avoid DbContext concurrency issues
             var gate = new SemaphoreSlim(3);
-            var tasks = ids.Select(async id =>
+            var tasks = remoteIds.Select(async id =>
             {
                 await gate.WaitAsync(ct);
                 try
                 {
-                    await SyncFromOrthancAsync(id, ct);
+                    using var scope = _scopeFactory.CreateScope();
+                    var scopedService = scope.ServiceProvider.GetRequiredService<IStudyCacheService>();
+                    await scopedService.SyncFromOrthancAsync(id, ct);
                 }
                 finally
                 {
@@ -149,7 +183,7 @@ namespace Sitim.Infrastructure.Services
             }).ToArray();
 
             await Task.WhenAll(tasks);
-            return ids.Count;
+            return remoteIds.Count;
         }
 
         private static StudySummary ToSummary(ImagingStudy s) => new(

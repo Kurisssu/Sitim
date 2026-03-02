@@ -41,6 +41,8 @@ namespace Sitim.Api.Controllers
                 try
                 {
                     var d = await _orthanc.GetStudyAsync(id, ct);
+                    if (d is null) return null; // Skip missing studies
+
                     return new StudySummary(
                         OrthancStudyId: d.OrthancStudyId,
                         StudyInstanceUid: d.StudyInstanceUid,
@@ -57,7 +59,7 @@ namespace Sitim.Api.Controllers
             }).ToArray();
 
             var summaries = await Task.WhenAll(tasks);
-            results.AddRange(summaries);
+            results.AddRange(summaries.Where(s => s is not null)!);
 
             // Optional: sort by date descending when available
             results.Sort((a, b) => string.Compare(b.StudyDate, a.StudyDate, StringComparison.Ordinal));
@@ -69,6 +71,7 @@ namespace Sitim.Api.Controllers
         public async Task<ActionResult<StudyDetails>> GetStudy(string orthancStudyId, CancellationToken ct)
         {
             var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            if (d is null) return NotFound("Study not found in Orthanc.");
 
             return Ok(new StudyDetails(
                 OrthancStudyId: d.OrthancStudyId,
@@ -85,6 +88,8 @@ namespace Sitim.Api.Controllers
         public async Task<ActionResult<object>> GetViewerLink(string orthancStudyId, CancellationToken ct)
         {
             var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            if (d is null) return NotFound("Study not found in Orthanc.");
+
             if (string.IsNullOrWhiteSpace(d.StudyInstanceUid))
                 return Problem(statusCode: 500, title: "StudyInstanceUID is missing in Orthanc response.");
 

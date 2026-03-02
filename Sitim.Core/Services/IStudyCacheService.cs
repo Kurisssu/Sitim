@@ -24,7 +24,7 @@ namespace Sitim.Core.Services
         /// <summary>
         /// Fetches details from Orthanc and upserts them into DB, then returns the DB view.
         /// </summary>
-        Task<StudyDetails> SyncFromOrthancAsync(string orthancStudyId, CancellationToken ct);
+        Task<StudyDetails?> SyncFromOrthancAsync(string orthancStudyId, CancellationToken ct);
         /// <summary>
         /// Sync all studies currently present in Orthanc(MVP).
         /// Returns how many studies were synced.

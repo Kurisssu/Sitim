@@ -5,7 +5,7 @@ namespace Sitim.Core.Services
     public interface IOrthancClient
     {
         Task<IReadOnlyList<string>> GetStudyIdsAsync(CancellationToken ct);
-        Task<OrthancStudyDetails> GetStudyAsync(string orthancStudyId, CancellationToken ct);
+        Task<OrthancStudyDetails?> GetStudyAsync(string orthancStudyId, CancellationToken ct);
         /// <summary>
         /// Upload a single DICOM instance into Orthanc (POST /instances).
         /// </summary>

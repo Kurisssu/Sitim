@@ -35,6 +35,20 @@ builder.WebHost.ConfigureKestrel(o =>
     o.Limits.MaxRequestBodySize = MaxUploadBytes;
 });
 
+// CORS — allow Blazor UI (Sitim.Web) to call this API
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("SitimWeb", policy =>
+    {
+        policy.WithOrigins(
+                "https://localhost:5001",
+                "http://localhost:5000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Controllers
 builder.Services.AddControllers();
 
@@ -167,6 +181,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("SitimWeb");
 
 app.UseAuthentication();
 

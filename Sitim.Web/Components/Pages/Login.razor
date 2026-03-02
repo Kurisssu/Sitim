@@ -1,0 +1,106 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout MainLayout
+@inject SitimAuthStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+
+<PageTitle>SITIM — Autentificare</PageTitle>
+
+@if (!_alreadyAuthenticated)
+{
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+    <RadzenRow JustifyContent="JustifyContent.Center" Style="width: 100%;">
+        <RadzenColumn Size="12" SizeMD="6" SizeLG="4">
+            <RadzenCard>
+                <RadzenStack Gap="1.5rem">
+                    <RadzenStack AlignItems="AlignItems.Center">
+                        <RadzenIcon Icon="biotech" style="font-size: 64px; color: var(--rz-primary);" />
+                        <RadzenText Text="SITIM" TextStyle="TextStyle.H4" class="rz-mb-0" />
+                        <RadzenText Text="Platformă de Diagnostic Imagistic" TextStyle="TextStyle.Subtitle1"
+                                    style="color: var(--rz-text-tertiary-color);" />
+                    </RadzenStack>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <RadzenAlert AlertStyle="AlertStyle.Danger" ShowIcon="true" Variant="Variant.Flat" Size="AlertSize.Small">
+                            @errorMessage
+                        </RadzenAlert>
+                    }
+
+                    <RadzenTemplateForm TItem="LoginModel" Data="@loginModel" Submit="@OnSubmit">
+                        <RadzenStack Gap="1rem">
+                            <RadzenFormField Text="Email" Variant="Variant.Outlined">
+                                <RadzenTextBox @bind-Value="loginModel.Email" Name="Email" />
+                            </RadzenFormField>
+
+                            <RadzenFormField Text="Parolă" Variant="Variant.Outlined">
+                                <RadzenPassword @bind-Value="loginModel.Password" Name="Password" />
+                            </RadzenFormField>
+
+                            <RadzenButton Text="Autentificare" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary"
+                                          Size="ButtonSize.Large" IsBusy="@isLoading" BusyText="Se autentifică..."
+                                          Style="width: 100%;" Icon="login" />
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+</div>
+}
+
+@code {
+    private LoginModel loginModel = new();
+    private string? errorMessage;
+    private bool isLoading;
+    private bool _alreadyAuthenticated;
+
+    private sealed class LoginModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check auth state (reads from cookie — no JS needed, instant)
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _alreadyAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _alreadyAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private async Task OnSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var error = await AuthProvider.LoginAsync(loginModel.Email, loginModel.Password);
+            if (error is not null)
+            {
+                errorMessage = error;
+            }
+            else
+            {
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Eroare de conexiune: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

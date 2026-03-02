@@ -1,0 +1,146 @@
+@page "/analyses"
+@attribute [Authorize]
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+
+<PageTitle>Analize — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenColumn>
+            <RadzenText Text="Analize" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+        </RadzenColumn>
+        <RadzenColumn>
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                              Click="@LoadAll" />
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (isLoading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (studyIds.Count == 0)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark" AllowClose="false">
+            Nu există analize. Pornește o analiză din pagina unui studiu.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenDataGrid Data="@allAnalyses" TItem="AnalysisJobDto"
+                        AllowFiltering="true" AllowSorting="true" AllowPaging="true" PageSize="20"
+                        FilterMode="FilterMode.Simple" Density="Density.Compact"
+                        EmptyText="Nu există analize.">
+            <Columns>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Property="OrthancStudyId" Title="Studiu" Width="160px">
+                    <Template Context="job">
+                        <RadzenLink Text="@Truncate(job.OrthancStudyId, 14)" Path="@($"/studies/{job.OrthancStudyId}")"
+                                    style="font-family: monospace; font-size: 0.85rem;" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Property="ModelKey" Title="Model" Width="100px" />
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Status" Width="110px">
+                    <Template Context="job">
+                        <RadzenBadge BadgeStyle="@GetBadge(job.Status)" Text="@TranslateStatus(job.Status)" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Property="CreatedAtUtc" Title="Creat" Width="150px" SortOrder="SortOrder.Descending">
+                    <Template Context="job">@job.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Durată" Width="100px" Sortable="false" Filterable="false">
+                    <Template Context="job">
+                        @if (job.StartedAtUtc.HasValue && job.FinishedAtUtc.HasValue)
+                        {
+                            var duration = job.FinishedAtUtc.Value - job.StartedAtUtc.Value;
+                            @($"{duration.TotalSeconds:F1}s")
+                        }
+                        else
+                        {
+                            <span>—</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Property="ErrorMessage" Title="Eroare" Width="200px">
+                    <Template Context="job">
+                        @if (!string.IsNullOrWhiteSpace(job.ErrorMessage))
+                        {
+                            <RadzenText Text="@Truncate(job.ErrorMessage, 40)" TextStyle="TextStyle.Caption" style="color: var(--rz-danger);" />
+                        }
+                        else
+                        {
+                            <span>—</span>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Acțiuni" Width="100px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                    <Template Context="job">
+                        <RadzenButton Icon="info" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
+                                      Click="@(() => Navigation.NavigateTo($"/analyses/{job.Id}"))" title="Detalii" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</RadzenStack>
+
+@code {
+    private List<AnalysisJobDto> allAnalyses = [];
+    private HashSet<string> studyIds = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        isLoading = true;
+        try
+        {
+            // Get all studies from local DB, then fetch analyses per study
+            var studies = await Api.GetLocalStudiesAsync();
+            studyIds = studies.Select(s => s.OrthancStudyId).ToHashSet();
+
+            var tasks = studyIds.Select(id => Api.GetAnalysesByStudyAsync(id));
+            var results = await Task.WhenAll(tasks);
+            allAnalyses = results.SelectMany(x => x).OrderByDescending(x => x.CreatedAtUtc).ToList();
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private static BadgeStyle GetBadge(string status) => status switch
+    {
+        "Queued" => BadgeStyle.Warning,
+        "Running" => BadgeStyle.Info,
+        "Succeeded" => BadgeStyle.Success,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static string TranslateStatus(string status) => status switch
+    {
+        "Queued" => "În așteptare",
+        "Running" => "Rulează",
+        "Succeeded" => "Finalizat",
+        "Failed" => "Eșuat",
+        _ => status
+    };
+
+    private static string Truncate(string? text, int maxLen)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "—";
+        return text.Length <= maxLen ? text : text[..maxLen] + "…";
+    }
+}

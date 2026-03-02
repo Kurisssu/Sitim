@@ -27,12 +27,17 @@ namespace Sitim.Infrastructure.Orthanc
             return ids ?? new List<string>();
         }
 
-        public async Task<OrthancStudyDetails> GetStudyAsync(string orthancStudyId, CancellationToken ct)
+        public async Task<OrthancStudyDetails?> GetStudyAsync(string orthancStudyId, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(orthancStudyId))
                 throw new ArgumentException("orthancStudyId is required", nameof(orthancStudyId));
 
             using var resp = await _http.GetAsync($"studies/{orthancStudyId}", ct);
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+
+            resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(json);
