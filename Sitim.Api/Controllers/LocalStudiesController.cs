@@ -47,5 +47,17 @@ namespace Sitim.Api.Controllers
             var count = await _cache.SyncAllFromOrthancAsync(ct);
             return Ok(new { synced = count });
         }
+
+        /// <summary>
+        /// Permanently deletes a study from Orthanc and from the local DB.
+        /// Also removes the patient record if it has no remaining studies.
+        /// </summary>
+        [HttpDelete("{orthancStudyId}")]
+        [Authorize(Roles = "SuperAdmin,Admin")]
+        public async Task<IActionResult> Delete(string orthancStudyId, CancellationToken ct)
+        {
+            var deleted = await _cache.DeleteStudyAsync(orthancStudyId, ct);
+            return deleted ? NoContent() : NotFound();
+        }
     }
 }

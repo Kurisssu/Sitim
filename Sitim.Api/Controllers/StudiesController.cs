@@ -29,7 +29,15 @@ namespace Sitim.Api.Controllers
         [HttpGet]
         public async Task<ActionResult<IReadOnlyList<StudySummary>>> GetStudies(CancellationToken ct)
         {
-            var ids = await _orthanc.GetStudyIdsAsync(ct);
+            IReadOnlyList<string> ids;
+            try
+            {
+                ids = await _orthanc.GetStudyIdsAsync(ct);
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+            }
 
             // Fetch minimal details with limited parallelism (avoid hammering Orthanc)
             var results = new List<StudySummary>(ids.Count);
@@ -41,7 +49,7 @@ namespace Sitim.Api.Controllers
                 try
                 {
                     var d = await _orthanc.GetStudyAsync(id, ct);
-                    if (d is null) return null; // Skip missing studies
+                    if (d is null) return null;
 
                     return new StudySummary(
                         OrthancStudyId: d.OrthancStudyId,
@@ -52,6 +60,10 @@ namespace Sitim.Api.Controllers
                         ModalitiesInStudy: d.ModalitiesInStudy
                     );
                 }
+                catch (HttpRequestException)
+                {
+                    return null;
+                }
                 finally
                 {
                     gate.Release();
@@ -61,7 +73,6 @@ namespace Sitim.Api.Controllers
             var summaries = await Task.WhenAll(tasks);
             results.AddRange(summaries.Where(s => s is not null)!);
 
-            // Optional: sort by date descending when available
             results.Sort((a, b) => string.Compare(b.StudyDate, a.StudyDate, StringComparison.Ordinal));
 
             return Ok(results);
@@ -70,7 +81,16 @@ namespace Sitim.Api.Controllers
         [HttpGet("{orthancStudyId}")]
         public async Task<ActionResult<StudyDetails>> GetStudy(string orthancStudyId, CancellationToken ct)
         {
-            var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            OrthancStudyDetails? d;
+            try
+            {
+                d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+            }
+
             if (d is null) return NotFound("Study not found in Orthanc.");
 
             return Ok(new StudyDetails(
@@ -87,7 +107,16 @@ namespace Sitim.Api.Controllers
         [HttpGet("{orthancStudyId}/viewer-link")]
         public async Task<ActionResult<object>> GetViewerLink(string orthancStudyId, CancellationToken ct)
         {
-            var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            OrthancStudyDetails? d;
+            try
+            {
+                d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            }
+            catch (HttpRequestException)
+            {
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+            }
+
             if (d is null) return NotFound("Study not found in Orthanc.");
 
             if (string.IsNullOrWhiteSpace(d.StudyInstanceUid))
@@ -96,7 +125,6 @@ namespace Sitim.Api.Controllers
             var baseUrl = (_ohif.BaseUrl ?? "").TrimEnd('/');
             var uid = Uri.EscapeDataString(d.StudyInstanceUid);
 
-            // OHIF supports deep-link via query parameter StudyInstanceUIDs
             var url = $"{baseUrl}/viewer?StudyInstanceUIDs={uid}";
 
             return Ok(new { url });

@@ -46,7 +46,7 @@ var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7006
 builder.Services.AddHttpClient<SitimApiClient>(client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
-    client.Timeout = TimeSpan.FromSeconds(120);
+    client.Timeout = TimeSpan.FromMinutes(10);
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {

@@ -27,5 +27,12 @@ namespace Sitim.Core.Services
         /// Falls back to GetStudyIdsAsync if labels are not supported.
         /// </summary>
         Task<IReadOnlyList<string>> GetStudyIdsByLabelAsync(string label, CancellationToken ct);
+
+        /// <summary>
+        /// Permanently deletes a study from Orthanc (DELETE /studies/{id}).
+        /// Returns true if deleted, false if not found.
+        /// Throws on other errors.
+        /// </summary>
+        Task<bool> DeleteStudyAsync(string orthancStudyId, CancellationToken ct);
     }
 }

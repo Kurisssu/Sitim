@@ -1,5 +1,5 @@
 @page "/import"
-@attribute [Authorize(Roles = "SuperAdmin,Admin,Technician")]
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Doctor,Technician")]
 @inject SitimApiClient Api
 @inject NotificationService Notification
 @inject NavigationManager Navigation
@@ -29,7 +29,14 @@
 
             @if (isUploading)
             {
-                <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary" Value="100" Mode="ProgressBarMode.Indeterminate" />
+                <RadzenStack Gap="0.25rem">
+                    <RadzenProgressBar ProgressBarStyle="ProgressBarStyle.Primary"
+                                       Value="@_progress"
+                                       Mode="@(_progress < 100 ? ProgressBarMode.Determinate : ProgressBarMode.Indeterminate)"
+                                       ShowValue="@(_progress < 100)" />
+                    <RadzenText Text="@_progressLabel" TextStyle="TextStyle.Caption"
+                                style="color: var(--rz-text-tertiary-color);" />
+                </RadzenStack>
             }
         </RadzenStack>
     </RadzenCard>
@@ -97,6 +104,16 @@
     private bool isUploading;
     private SitimApiClient.ImportResult? importResult;
 
+    private double _progress = 0;
+    private string _progressLabel = "";
+
+    private void SetProgress(double value, string label)
+    {
+        _progress = value;
+        _progressLabel = label;
+        StateHasChanged();
+    }
+
     private void OnFileSelected(InputFileChangeEventArgs e)
     {
         selectedFiles = e.GetMultipleFiles(100).ToList();
@@ -110,36 +127,53 @@
 
         isUploading = true;
         importResult = null;
+        _progress = 0;
 
         try
         {
-            // Determine if it's a single ZIP or multiple DICOM files
             var firstFile = selectedFiles[0];
             if (selectedFiles.Count == 1 && firstFile.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                // ZIP archive
-                await using var stream = firstFile.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
-                importResult = await Api.ImportArchiveAsync(stream, firstFile.Name);
+                SetProgress(10, $"Se citește arhiva {firstFile.Name}...");
+                await using var browserStream = firstFile.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
+                var ms = new MemoryStream();
+                await browserStream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                SetProgress(70, "Se trimite la server...");
+                importResult = await Api.ImportArchiveAsync(ms, firstFile.Name);
             }
             else
             {
-                // Multiple DICOM files
-                var fileData = new List<(Stream, string)>();
-                foreach (var file in selectedFiles)
+                var fileData = new List<(byte[], string)>();
+                long bytesReadSoFar = 0;
+
+                for (int i = 0; i < selectedFiles.Count; i++)
                 {
-                    var stream = file.OpenReadStream(maxAllowedSize: 512L * 1024 * 1024);
-                    fileData.Add((stream, file.Name));
+                    var file = selectedFiles[i];
+                    // Reading phase: 0% → 70%, distributed evenly per file
+                    double readStart = (double)i / selectedFiles.Count * 70;
+                    SetProgress(readStart, $"Se citește fișierul {i + 1} din {selectedFiles.Count}: {file.Name}");
+
+                    await using var browserStream = file.OpenReadStream(maxAllowedSize: 512L * 1024 * 1024);
+                    var ms = new MemoryStream();
+                    await browserStream.CopyToAsync(ms);
+                    fileData.Add((ms.ToArray(), file.Name));
+
+                    bytesReadSoFar += file.Size;
+                    double readEnd = (double)(i + 1) / selectedFiles.Count * 70;
+                    SetProgress(readEnd, $"Citit {i + 1} din {selectedFiles.Count} fișiere ({FormatFileSize(bytesReadSoFar)} / {FormatFileSize(totalSize)})");
                 }
 
+                SetProgress(75, "Se trimite la server...");
                 importResult = await Api.ImportFilesAsync(fileData);
-
-                // Dispose streams
-                foreach (var (stream, _) in fileData)
-                    await stream.DisposeAsync();
             }
+
+            SetProgress(90, "Se sincronizează studiile...");
 
             if (importResult is not null)
             {
+                SetProgress(100, "");
                 Notification.Notify(NotificationSeverity.Success, "Import reușit",
                     $"{importResult.UploadedInstances} instanțe importate, {importResult.SyncedStudies} studii sincronizate.");
             }
