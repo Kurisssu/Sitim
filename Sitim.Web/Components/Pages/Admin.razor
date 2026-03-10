@@ -1,5 +1,5 @@
 @page "/admin"
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @inject SitimApiClient Api
 @inject NotificationService Notification
 @inject NavigationManager Navigation
@@ -141,7 +141,11 @@
         try
         {
             var count = await Api.SyncAllStudiesAsync();
-            Notification.Notify(NotificationSeverity.Success, "Sincronizare", $"{count} studii sincronizate.");
+            var msg = count == 0
+                ? "Nu există studii noi pentru această instituție în Orthanc."
+                : $"{count} {(count == 1 ? "studiu sincronizat" : "studii sincronizate")}.";
+            var severity = count == 0 ? NotificationSeverity.Info : NotificationSeverity.Success;
+            Notification.Notify(severity, "Sincronizare", msg);
         }
         catch (Exception ex)
         {

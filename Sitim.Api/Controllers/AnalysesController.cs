@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Sitim.Api.Services;
 using Sitim.Core.Entities;
 using Sitim.Core.Models;
+using Sitim.Core.Services;
 using Sitim.Infrastructure.Data;
 using Sitim.Api.Security;
+using System.Security.Claims;
 
 namespace Sitim.Api.Controllers
 {
@@ -16,11 +18,13 @@ namespace Sitim.Api.Controllers
     {
         private readonly AppDbContext _db;
         private readonly IAnalysisJobScheduler _scheduler;
+        private readonly ITenantContext _tenantContext;
 
-        public AnalysesController(AppDbContext db, IAnalysisJobScheduler scheduler)
+        public AnalysesController(AppDbContext db, IAnalysisJobScheduler scheduler, ITenantContext tenantContext)
         {
             _db = db;
             _scheduler = scheduler;
+            _tenantContext = tenantContext;
         }
 
         /// <summary>
@@ -34,13 +38,21 @@ namespace Sitim.Api.Controllers
 
             var modelKey = string.IsNullOrWhiteSpace(req.ModelKey) ? "demo" : req.ModelKey.Trim();
 
+            Guid? createdByUserId = null;
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            if (Guid.TryParse(userIdStr, out var uid))
+                createdByUserId = uid;
+
             var job = new AnalysisJob
             {
                 Id = Guid.NewGuid(),
                 OrthancStudyId = req.OrthancStudyId.Trim(),
                 ModelKey = modelKey,
                 Status = AnalysisStatus.Queued,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = DateTime.UtcNow,
+                InstitutionId = _tenantContext.InstitutionId,
+                CreatedByUserId = createdByUserId
             };
 
             _db.AnalysisJobs.Add(job);

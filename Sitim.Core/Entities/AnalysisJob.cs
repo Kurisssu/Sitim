@@ -34,5 +34,14 @@ namespace Sitim.Core.Entities
 
         /// <summary>Path on local disk where the analysis result JSON is stored.</summary>
         public string? ResultJsonPath { get; set; }
+
+        /// <summary>
+        /// Tenant identifier – the institution that owns this analysis job.
+        /// Null only for records created before multi-tenancy was introduced.
+        /// </summary>
+        public Guid? InstitutionId { get; set; }
+
+        /// <summary>ID of the user who created this job (audit trail).</summary>
+        public Guid? CreatedByUserId { get; set; }
     }
 }

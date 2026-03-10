@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Sitim.Api.Models;
 using Sitim.Api.Security;
+using Sitim.Infrastructure.Data;
 using Sitim.Infrastructure.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -15,11 +17,13 @@ namespace Sitim.Api.Controllers
     {
         private readonly UserManager<ApplicationUser> _users;
         private readonly ITokenService _tokens;
+        private readonly AppDbContext _db;
 
-        public AuthController(UserManager<ApplicationUser> users, ITokenService tokens)
+        public AuthController(UserManager<ApplicationUser> users, ITokenService tokens, AppDbContext db)
         {
             _users = users;
             _tokens = tokens;
+            _db = db;
         }
 
         /// <summary>
@@ -33,18 +37,36 @@ namespace Sitim.Api.Controllers
             if (user is null)
                 return Unauthorized();
 
+            // Inactive users cannot log in
+            if (!user.IsActive)
+                return Unauthorized();
+
             var ok = await _users.CheckPasswordAsync(user, req.Password);
             if (!ok)
                 return Unauthorized();
 
             var roles = await _users.GetRolesAsync(user);
-            var (token, expiresIn) = _tokens.CreateAccessToken(user, (IReadOnlyList<string>)roles);
+
+            string? institutionSlug = null;
+            if (user.InstitutionId.HasValue)
+            {
+                var inst = await _db.Institutions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == user.InstitutionId.Value);
+                institutionSlug = inst?.Slug;
+            }
+
+            var (token, expiresIn) = _tokens.CreateAccessToken(
+                user,
+                (IReadOnlyList<string>)roles,
+                user.InstitutionId,
+                institutionSlug);
 
             return Ok(new AuthResponse(token, expiresIn));
         }
 
         /// <summary>
-        /// Returns the current user's identity and roles.
+        /// Returns the current user's identity, roles, and institution.
         /// </summary>
         [Authorize]
         [HttpGet("me")]
@@ -62,8 +84,46 @@ namespace Sitim.Api.Controllers
                 return Unauthorized();
 
             var roles = await _users.GetRolesAsync(user);
-            return Ok(new MeResponse(userId, user.Email ?? "", (IReadOnlyList<string>)roles));
+
+            string? institutionName = null;
+            if (user.InstitutionId.HasValue)
+            {
+                var inst = await _db.Institutions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == user.InstitutionId.Value);
+                institutionName = inst?.Name;
+            }
+
+            return Ok(new MeResponse(
+                userId,
+                user.Email ?? "",
+                (IReadOnlyList<string>)roles,
+                user.InstitutionId,
+                institutionName));
         }
 
+        /// <summary>
+        /// Sets a new password using the password-reset token from the invite link.
+        /// Activates the user account on success.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("set-password")]
+        public async Task<IActionResult> SetPassword([FromBody] Models.SetPasswordRequest req)
+        {
+            var user = await _users.FindByIdAsync(req.UserId.ToString());
+            if (user is null)
+                return BadRequest("Invalid request.");
+
+            var result = await _users.ResetPasswordAsync(user, req.Token, req.NewPassword);
+            if (!result.Succeeded)
+                return BadRequest(result.Errors.Select(e => e.Description));
+
+            // Activate the account after password is set
+            user.IsActive = true;
+            user.EmailConfirmed = true;
+            await _users.UpdateAsync(user);
+
+            return Ok();
+        }
     }
 }

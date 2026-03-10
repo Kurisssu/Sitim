@@ -15,5 +15,17 @@ namespace Sitim.Core.Services
         /// Downloads the Orthanc study archive (ZIP) (GET /studies/{id}/archive).
         /// </summary>
         Task DownloadStudyArchiveAsync(string orthancStudyId, Stream destination, CancellationToken ct);
+
+        /// <summary>
+        /// Applies a label to an Orthanc study (PUT /studies/{id}/labels/{label}).
+        /// Available in Orthanc 1.9.0+. Labels are used to scope studies per institution.
+        /// </summary>
+        Task SetStudyLabelAsync(string orthancStudyId, string label, CancellationToken ct);
+
+        /// <summary>
+        /// Returns all study IDs that have the given label (GET /studies?labels={label}).
+        /// Falls back to GetStudyIdsAsync if labels are not supported.
+        /// </summary>
+        Task<IReadOnlyList<string>> GetStudyIdsByLabelAsync(string label, CancellationToken ct);
     }
 }

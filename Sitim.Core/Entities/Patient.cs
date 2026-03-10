@@ -22,6 +22,12 @@ namespace Sitim.Core.Entities
         /// </summary>
         public string? PatientName { get; set; }
 
+        /// <summary>
+        /// Tenant identifier – the institution that owns this patient record.
+        /// Null only for records created before multi-tenancy was introduced.
+        /// </summary>
+        public Guid? InstitutionId { get; set; }
+
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public List<ImagingStudy> Studies { get; set; } = new();

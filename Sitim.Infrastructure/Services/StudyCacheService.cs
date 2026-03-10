@@ -17,12 +17,18 @@ namespace Sitim.Infrastructure.Services
         private readonly AppDbContext _db;
         private readonly IOrthancClient _orthanc;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ITenantContext _tenantContext;
 
-        public StudyCacheService(AppDbContext db, IOrthancClient orthanc, IServiceScopeFactory scopeFactory)
+        public StudyCacheService(
+            AppDbContext db,
+            IOrthancClient orthanc,
+            IServiceScopeFactory scopeFactory,
+            ITenantContext tenantContext)
         {
             _db = db;
             _orthanc = orthanc;
             _scopeFactory = scopeFactory;
+            _tenantContext = tenantContext;
         }
 
         public async Task<IReadOnlyList<StudySummary>> ListLocalAsync(CancellationToken ct)
@@ -66,11 +72,13 @@ namespace Sitim.Infrastructure.Services
                 return null;
             }
 
-            // 1) Patient upsert (best-effort)
+            // 1) Patient upsert (best-effort) — IgnoreQueryFilters to avoid cross-tenant duplicates.
             Patient? patient = null;
             if (!string.IsNullOrWhiteSpace(d.PatientId))
             {
-                patient = await _db.Patients.FirstOrDefaultAsync(p => p.PatientId == d.PatientId, ct);
+                patient = await _db.Patients
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(p => p.PatientId == d.PatientId, ct);
                 if (patient is null)
                 {
                     patient = new Patient
@@ -78,6 +86,7 @@ namespace Sitim.Infrastructure.Services
                         Id = Guid.NewGuid(),
                         PatientId = d.PatientId,
                         PatientName = d.PatientName,
+                        InstitutionId = _tenantContext.InstitutionId,
                         CreatedAtUtc = DateTime.UtcNow,
                         UpdatedAtUtc = DateTime.UtcNow
                     };
@@ -92,10 +101,21 @@ namespace Sitim.Infrastructure.Services
                 }
             }
 
-            // 2) Study upsert
+            // 2) Study upsert — use IgnoreQueryFilters to find the record across ALL institutions,
+            // preventing duplicates when a study already exists under a different institution.
             var study = await _db.ImagingStudies
+                .IgnoreQueryFilters()
                 .Include(x => x.Series)
                 .FirstOrDefaultAsync(x => x.OrthancStudyId == d.OrthancStudyId, ct);
+
+            if (study is not null
+                && study.InstitutionId.HasValue
+                && study.InstitutionId != _tenantContext.InstitutionId
+                && !_tenantContext.IsSuperAdmin)
+            {
+                // Study belongs to a different institution — do not touch it.
+                return await GetLocalAsync(d.OrthancStudyId, ct);
+            }
 
             if (study is null)
             {
@@ -103,6 +123,7 @@ namespace Sitim.Infrastructure.Services
                 {
                     Id = Guid.NewGuid(),
                     OrthancStudyId = d.OrthancStudyId,
+                    InstitutionId = _tenantContext.InstitutionId,
                     CreatedAtUtc = DateTime.UtcNow,
                     UpdatedAtUtc = DateTime.UtcNow,
                 };
@@ -147,25 +168,43 @@ namespace Sitim.Infrastructure.Services
 
         public async Task<int> SyncAllFromOrthancAsync(CancellationToken ct)
         {
-            var remoteIds = await _orthanc.GetStudyIdsAsync(ct);
+            IReadOnlyList<string> remoteIds;
+
+            if (!_tenantContext.IsSuperAdmin && _tenantContext.InstitutionId.HasValue)
+            {
+                // Fetch only the studies that carry this institution's Orthanc label.
+                var institution = await _db.Institutions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == _tenantContext.InstitutionId.Value, ct);
+
+                if (institution is null) return 0;
+
+                remoteIds = await _orthanc.GetStudyIdsByLabelAsync(institution.OrthancLabel, ct);
+            }
+            else
+            {
+                // SuperAdmin: sync every study in Orthanc across all institutions.
+                remoteIds = await _orthanc.GetStudyIdsAsync(ct);
+            }
+
+            // localIds is already scoped by the Global Query Filter (tenant or all for SuperAdmin).
             var localIds = await _db.ImagingStudies.Select(x => x.OrthancStudyId).ToListAsync(ct);
 
-            // 1. Identify studies present locally but missing in Orthanc (deleted)
+            // 1. Remove local studies that no longer exist in Orthanc (for this institution's scope).
             var idsToDelete = localIds.Except(remoteIds).ToList();
             if (idsToDelete.Count > 0)
             {
                 var studiesToDelete = await _db.ImagingStudies
                     .Where(x => idsToDelete.Contains(x.OrthancStudyId))
                     .ToListAsync(ct);
-                
+
                 _db.ImagingStudies.RemoveRange(studiesToDelete);
                 await _db.SaveChangesAsync(ct);
             }
 
             if (remoteIds.Count == 0) return 0;
 
-            // 2. Sync existing/new studies from Orthanc
-            // Limited parallelism with separate scopes to avoid DbContext concurrency issues
+            // 2. Sync existing/new studies with limited parallelism.
             var gate = new SemaphoreSlim(3);
             var tasks = remoteIds.Select(async id =>
             {

@@ -60,6 +60,8 @@ public sealed class SitimApiClient
     {
         AttachToken();
         var resp = await _http.GetAsync("api/local/studies");
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            return [];
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<List<StudySummary>>(JsonOpts) ?? [];
     }
@@ -180,6 +182,50 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<ImportResult>(JsonOpts);
     }
 
+    // ── Users ─────────────────────────────────────────────
+
+    public async Task<List<UserResult>> GetUsersAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/users");
+        if (!resp.IsSuccessStatusCode) return [];
+        return await resp.Content.ReadFromJsonAsync<List<UserResult>>(JsonOpts) ?? [];
+    }
+
+    public async Task<InviteUserResponse?> InviteUserAsync(
+        string email, string? fullName, string role, Guid? institutionId, string webBaseUrl)
+    {
+        AttachToken();
+        var resp = await _http.PostAsJsonAsync(
+            $"api/users/invite?baseUrl={Uri.EscapeDataString(webBaseUrl)}",
+            new InviteUserRequest(email, fullName, role, institutionId));
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<InviteUserResponse>(JsonOpts);
+    }
+
+    public async Task<UserResult?> UpdateUserAsync(Guid id, string? fullName, string? role, bool? isActive)
+    {
+        AttachToken();
+        var resp = await _http.PutAsJsonAsync($"api/users/{id}",
+            new UpdateUserRequest(fullName, role, isActive));
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<UserResult>(JsonOpts);
+    }
+
+    public async Task<bool> DeactivateUserAsync(Guid id)
+    {
+        AttachToken();
+        var resp = await _http.DeleteAsync($"api/users/{id}");
+        return resp.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SetPasswordAsync(Guid userId, string token, string newPassword)
+    {
+        var resp = await _http.PostAsJsonAsync("api/auth/set-password",
+            new SetPasswordRequest(userId, token, newPassword));
+        return resp.IsSuccessStatusCode;
+    }
+
     // ── Health ────────────────────────────────────────────
 
     public async Task<bool> HealthCheckAsync()
@@ -192,11 +238,47 @@ public sealed class SitimApiClient
         catch { return false; }
     }
 
+    // ── Institutions (SuperAdmin) ─────────────────────────
+
+    public async Task<List<InstitutionResult>> GetInstitutionsAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/institutions");
+        if (!resp.IsSuccessStatusCode) return [];
+        return await resp.Content.ReadFromJsonAsync<List<InstitutionResult>>(JsonOpts) ?? [];
+    }
+
+    public async Task<InstitutionResult?> CreateInstitutionAsync(string name, string slug, string orthancLabel)
+    {
+        AttachToken();
+        var resp = await _http.PostAsJsonAsync("api/institutions",
+            new CreateInstitutionRequest(name, slug, orthancLabel));
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
+    }
+
+    public async Task<InstitutionResult?> UpdateInstitutionAsync(Guid id, string name, bool isActive)
+    {
+        AttachToken();
+        var resp = await _http.PutAsJsonAsync($"api/institutions/{id}",
+            new UpdateInstitutionRequest(name, isActive));
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
+    }
+
     // ── DTOs locale ──────────────────────────────────────
 
     public sealed record LoginResult(string AccessToken, int ExpiresInSeconds);
-    public sealed record MeResult(Guid UserId, string Email, List<string> Roles);
+    public sealed record MeResult(Guid UserId, string Email, List<string> Roles, Guid? InstitutionId, string? InstitutionName);
     public sealed record SyncAllResult(int Synced);
     public sealed record ViewerLinkResult(string Url);
     public sealed record ImportResult(int UploadedInstances, List<string> OrthancStudyIds, int SyncedStudies, List<string> Errors);
+    public sealed record InstitutionResult(Guid Id, string Name, string Slug, string OrthancLabel, bool IsActive, DateTime CreatedAtUtc);
+    public sealed record CreateInstitutionRequest(string Name, string Slug, string OrthancLabel);
+    public sealed record UpdateInstitutionRequest(string Name, bool IsActive);
+    public sealed record UserResult(Guid Id, string Email, string? FullName, string Role, Guid? InstitutionId, string? InstitutionName, bool IsActive, DateTime CreatedAtUtc);
+    public sealed record InviteUserRequest(string Email, string? FullName, string Role, Guid? InstitutionId);
+    public sealed record InviteUserResponse(Guid UserId, string Email, string InviteLink);
+    public sealed record UpdateUserRequest(string? FullName, string? Role, bool? IsActive);
+    public sealed record SetPasswordRequest(Guid UserId, string Token, string NewPassword);
 }

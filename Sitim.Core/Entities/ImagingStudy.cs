@@ -32,6 +32,13 @@ namespace Sitim.Core.Entities
         public string[] ModalitiesInStudy { get; set; } = Array.Empty<string>();
         public Guid? PatientDbId { get; set; }
         public Patient? Patient { get; set; }
+
+        /// <summary>
+        /// Tenant identifier – the institution that owns this study.
+        /// Null only for records created before multi-tenancy was introduced.
+        /// </summary>
+        public Guid? InstitutionId { get; set; }
+
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public List<ImagingSeries> Series { get; set; } = new();

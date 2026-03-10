@@ -1,0 +1,370 @@
+@page "/users"
+@using Sitim.Web.Services
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin,Admin")]
+@inject SitimApiClient Api
+@inject NotificationService NotificationService
+@inject NavigationManager Navigation
+@inject AuthTokenStore TokenStore
+
+<PageTitle>Utilizatori — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="8">
+            <RadzenText Text="Utilizatori" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Gestionare conturi: doctori, tehnicieni și administratori." TextStyle="TextStyle.Body2"
+                        style="color: var(--rz-text-tertiary-color);" />
+        </RadzenColumn>
+        <RadzenColumn Size="4" class="rz-text-align-end">
+            <RadzenButton Text="Invită utilizator" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
+                          Click="@OpenInviteDialog" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (_loading)
+    {
+        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenDataGrid Data="@_users" TItem="SitimApiClient.UserResult"
+                        AllowSorting="true" AllowPaging="true" PageSize="25"
+                        EmptyText="Nu există utilizatori.">
+            <Columns>
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="FullName" Title="Nume" Width="180px">
+                    <Template Context="row">
+                        @(string.IsNullOrWhiteSpace(row.FullName) ? "—" : row.FullName)
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="Email" Title="Email" />
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="Role" Title="Rol" Width="130px">
+                    <Template Context="row">
+                        <RadzenBadge BadgeStyle="@RoleBadge(row.Role)" Text="@row.Role" />
+                    </Template>
+                </RadzenDataGridColumn>
+                @if (TokenStore.IsSuperAdmin)
+                {
+                    <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="InstitutionName" Title="Instituție" Width="160px">
+                        <Template Context="row">
+                            @(row.InstitutionName ?? "—")
+                        </Template>
+                    </RadzenDataGridColumn>
+                }
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Title="Status" Width="110px">
+                    <Template Context="row">
+                        @if (row.IsActive)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="CreatedAtUtc" Title="Creat" Width="120px"
+                                      FormatString="{0:yyyy-MM-dd}" />
+                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Title="Acțiuni" Width="140px" Sortable="false">
+                    <Template Context="row">
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                          Click="@(() => OpenEditDialog(row))" title="Editează" />
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                          Click="@(() => ConfirmDelete(row))" title="Șterge utilizatorul" />
+                        </RadzenStack>
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</RadzenStack>
+
+@* ── Invite dialog ── *@
+@if (_showInviteDialog)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:440px;max-width:640px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            @if (_inviteLink is null)
+            {
+                <RadzenText Text="Invită utilizator nou" TextStyle="TextStyle.H6" class="rz-mb-4" />
+                <RadzenStack Gap="1rem">
+                    <RadzenFormField Text="Email *" Style="width:100%">
+                        <ChildContent>
+                            <RadzenTextBox @bind-Value="_invEmail" Placeholder="doctor@clinica.ro" Style="width:100%" />
+                        </ChildContent>
+                    </RadzenFormField>
+                    <RadzenFormField Text="Nume complet" Style="width:100%">
+                        <ChildContent>
+                            <RadzenTextBox @bind-Value="_invFullName" Placeholder="Dr. Ion Popescu" Style="width:100%" />
+                        </ChildContent>
+                    </RadzenFormField>
+                    <RadzenFormField Text="Rol *" Style="width:100%">
+                        <ChildContent>
+                            <RadzenDropDown @bind-Value="_invRole"
+                                            Data="@GetAllowedRoles()"
+                                            Style="width:100%" />
+                        </ChildContent>
+                    </RadzenFormField>
+                    @if (TokenStore.IsSuperAdmin)
+                    {
+                        <RadzenFormField Text="Instituție *" Style="width:100%">
+                            <ChildContent>
+                                <RadzenDropDown @bind-Value="_invInstitutionId"
+                                                Data="@_institutions"
+                                                TextProperty="Name"
+                                                ValueProperty="Id"
+                                                Placeholder="Selectați instituția"
+                                                Style="width:100%" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    }
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                        <RadzenButton Text="Generează link" Icon="link" ButtonStyle="ButtonStyle.Primary"
+                                      Click="@DoInvite" IsBusy="@_saving" />
+                    </RadzenStack>
+                </RadzenStack>
+            }
+            else
+            {
+                <RadzenText Text="Link de invitație generat" TextStyle="TextStyle.H6" class="rz-mb-3" />
+                <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mb-3">
+                    Trimiteți linkul de mai jos utilizatorului. Acesta va putea să-și seteze parola
+                    și să se autentifice în platformă.
+                </RadzenAlert>
+                <RadzenFormField Text="Link invitație" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox Value="@_inviteLink" ReadOnly="true" Style="width:100%;font-size:0.8rem;" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
+                    <RadzenButton Text="Închide" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
+                </RadzenStack>
+            }
+        </RadzenCard>
+    </div>
+}
+
+@* ── Edit dialog ── *@
+@if (_showEditDialog && _editTarget is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:420px;max-width:560px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            <RadzenText Text="Editare utilizator" TextStyle="TextStyle.H6" class="rz-mb-4" />
+            <RadzenStack Gap="1rem">
+                <RadzenFormField Text="Nume complet" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_editFullName" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenFormField Text="Rol" Style="width:100%">
+                    <ChildContent>
+                        <RadzenDropDown @bind-Value="_editRole"
+                                        Data="@GetAllowedRoles()"
+                                        Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="_editIsActive" Name="editActive" />
+                    <RadzenLabel Text="Cont activ" Component="editActive" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="Salvare" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@DoEdit" IsBusy="@_saving" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    </div>
+}
+
+@* ── Confirm delete dialog ── *@
+@if (_showDeleteDialog && _deleteTarget is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:380px;max-width:480px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            <RadzenStack Gap="1rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
+                    <RadzenText Text="Confirmare ștergere" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                </RadzenStack>
+                <RadzenText>
+                    Ești sigur că vrei să ștergi definitiv utilizatorul
+                    <strong>@(_deleteTarget.FullName ?? _deleteTarget.Email)</strong>?
+                    Această acțiune nu poate fi anulată.
+                </RadzenText>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="Șterge definitiv" Icon="delete" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@DoDelete" IsBusy="@_saving" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    </div>
+}
+
+@code {
+    private List<SitimApiClient.UserResult> _users = [];
+    private List<SitimApiClient.InstitutionResult> _institutions = [];
+    private bool _loading = true;
+    private bool _saving = false;
+
+    // Invite dialog
+    private bool _showInviteDialog = false;
+    private string _invEmail = "";
+    private string? _invFullName;
+    private string _invRole = "Doctor";
+    private Guid? _invInstitutionId;
+    private string? _inviteLink;
+
+    // Edit dialog
+    private bool _showEditDialog = false;
+    private SitimApiClient.UserResult? _editTarget;
+    private string _editFullName = "";
+    private string _editRole = "Doctor";
+    private bool _editIsActive = true;
+
+    // Delete dialog
+    private bool _showDeleteDialog = false;
+    private SitimApiClient.UserResult? _deleteTarget;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        if (TokenStore.IsSuperAdmin)
+            _institutions = await Api.GetInstitutionsAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var all = await Api.GetUsersAsync();
+        // Exclude the currently logged-in user from the list
+        _users = all.Where(u => u.Id != TokenStore.UserId).ToList();
+        _loading = false;
+    }
+
+    private void OpenInviteDialog()
+    {
+        _invEmail = ""; _invFullName = null; _invRole = "Doctor"; _invInstitutionId = null; _inviteLink = null;
+        _showInviteDialog = true;
+        _showEditDialog = false;
+        _showDeleteDialog = false;
+    }
+
+    private void OpenEditDialog(SitimApiClient.UserResult u)
+    {
+        _editTarget = u;
+        _editFullName = u.FullName ?? "";
+        _editRole = u.Role;
+        _editIsActive = u.IsActive;
+        _showEditDialog = true;
+        _showInviteDialog = false;
+        _showDeleteDialog = false;
+    }
+
+    private void ConfirmDelete(SitimApiClient.UserResult u)
+    {
+        _deleteTarget = u;
+        _showDeleteDialog = true;
+        _showInviteDialog = false;
+        _showEditDialog = false;
+    }
+
+    private void CloseDialogs()
+    {
+        _showInviteDialog = false;
+        _showEditDialog = false;
+        _showDeleteDialog = false;
+        _inviteLink = null;
+        _deleteTarget = null;
+    }
+
+    private async Task DoInvite()
+    {
+        if (string.IsNullOrWhiteSpace(_invEmail))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Email obligatoriu.");
+            return;
+        }
+        if (TokenStore.IsSuperAdmin && !_invInstitutionId.HasValue)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Selectați instituția.");
+            return;
+        }
+
+        _saving = true;
+        var baseUrl = Navigation.BaseUri.TrimEnd('/');
+        var result = await Api.InviteUserAsync(_invEmail, _invFullName, _invRole, _invInstitutionId, baseUrl);
+        _saving = false;
+
+        if (result is null)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la invitație. Verificați că email-ul nu este deja înregistrat.");
+            return;
+        }
+
+        _inviteLink = result.InviteLink;
+        await LoadAsync();
+        NotificationService.Notify(NotificationSeverity.Success, $"Utilizatorul {result.Email} a fost creat.");
+    }
+
+    private async Task DoEdit()
+    {
+        if (_editTarget is null) return;
+
+        _saving = true;
+        var result = await Api.UpdateUserAsync(
+            _editTarget.Id,
+            string.IsNullOrWhiteSpace(_editFullName) ? null : _editFullName,
+            _editRole,
+            _editIsActive);
+        _saving = false;
+
+        if (result is null)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la actualizare.");
+            return;
+        }
+
+        NotificationService.Notify(NotificationSeverity.Success, "Utilizatorul a fost actualizat.");
+        CloseDialogs();
+        await LoadAsync();
+    }
+
+    private async Task DoDelete()
+    {
+        if (_deleteTarget is null) return;
+
+        _saving = true;
+        var ok = await Api.DeactivateUserAsync(_deleteTarget.Id);
+        _saving = false;
+
+        if (ok)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, $"Utilizatorul {_deleteTarget.Email} a fost șters definitiv.");
+            CloseDialogs();
+            await LoadAsync();
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la ștergere. Nu poți șterge conturi SuperAdmin sau propriul cont.");
+        }
+    }
+
+    private IEnumerable<string> GetAllowedRoles()
+    {
+        yield return "Doctor";
+        yield return "Technician";
+        if (TokenStore.IsSuperAdmin)
+            yield return "Admin";
+    }
+
+    private static BadgeStyle RoleBadge(string role) => role switch
+    {
+        "Admin" => BadgeStyle.Warning,
+        "Doctor" => BadgeStyle.Info,
+        "Technician" => BadgeStyle.Secondary,
+        _ => BadgeStyle.Light
+    };
+}

@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Sitim.Core.Services;
+using Sitim.Infrastructure.Data;
 using System.IO.Compression;
 using Sitim.Api.Security;
 
@@ -10,6 +12,7 @@ namespace Sitim.Api.Controllers
     /// MVP ingest endpoint:
     /// - accept one ZIP archive OR multiple DICOM files
     /// - upload instances into Orthanc (POST /instances)
+    /// - apply institution label to studies in Orthanc
     /// - sync parent studies into our local PostgreSQL cache
     ///
     /// Why this exists:
@@ -22,11 +25,19 @@ namespace Sitim.Api.Controllers
     {
         private readonly IOrthancClient _orthanc;
         private readonly IStudyCacheService _cache;
+        private readonly AppDbContext _db;
+        private readonly ITenantContext _tenantContext;
 
-        public StudiesImportController(IOrthancClient orthanc, IStudyCacheService cache)
+        public StudiesImportController(
+            IOrthancClient orthanc,
+            IStudyCacheService cache,
+            AppDbContext db,
+            ITenantContext tenantContext)
         {
             _orthanc = orthanc;
             _cache = cache;
+            _db = db;
+            _tenantContext = tenantContext;
         }
 
         public sealed class ImportRequest
@@ -53,7 +64,7 @@ namespace Sitim.Api.Controllers
         /// </remarks>
         [HttpPost("import")]
         [DisableRequestSizeLimit]
-        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024 * 1024)] // 2GB (for DEV/MVP)
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024 * 1024)] // 1GB (for DEV/MVP)
         public async Task<ActionResult<ImportResponse>> Import([FromForm] ImportRequest req, CancellationToken ct)
         {
             if ((req.Files == null || req.Files.Count == 0) && req.Archive == null)
@@ -124,7 +135,31 @@ namespace Sitim.Api.Controllers
                 }
             }
 
-            // 3) Sync uploaded studies into our local DB cache
+            // 3) Apply institution label in Orthanc (if user belongs to an institution)
+            if (_tenantContext.InstitutionId.HasValue)
+            {
+                var institution = await _db.Institutions
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == _tenantContext.InstitutionId.Value, ct);
+
+                if (institution is not null)
+                {
+                    foreach (var studyId in parentStudies)
+                    {
+                        try
+                        {
+                            await _orthanc.SetStudyLabelAsync(studyId, institution.OrthancLabel, ct);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Label setting is best-effort: log but don't fail the import
+                            errors.Add($"Label '{institution.OrthancLabel}' for study '{studyId}': {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+            // 4) Sync uploaded studies into our local DB cache
             var syncedStudies = 0;
             foreach (var studyId in parentStudies)
             {

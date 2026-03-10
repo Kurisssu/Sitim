@@ -157,5 +157,61 @@ namespace Sitim.Infrastructure.Orthanc
             await src.CopyToAsync(destination, ct);
         }
 
+        /// <inheritdoc/>
+        public async Task SetStudyLabelAsync(string orthancStudyId, string label, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(orthancStudyId))
+                throw new ArgumentException("orthancStudyId is required", nameof(orthancStudyId));
+            if (string.IsNullOrWhiteSpace(label))
+                throw new ArgumentException("label is required", nameof(label));
+
+            // PUT /studies/{id}/labels/{label} – body must be empty string per Orthanc API.
+            using var content = new StringContent(string.Empty);
+            using var resp = await _http.PutAsync($"studies/{orthancStudyId}/labels/{Uri.EscapeDataString(label)}", content, ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                throw new HttpRequestException(
+                    $"Orthanc set label failed ({(int)resp.StatusCode} {resp.ReasonPhrase}). Body: {body}",
+                    null,
+                    resp.StatusCode);
+            }
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<string>> GetStudyIdsByLabelAsync(string label, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(label))
+                throw new ArgumentException("label is required", nameof(label));
+
+            // GET /studies?labels={label} — supported in Orthanc 1.9.0+
+            // If Orthanc does not support label filtering it may return all studies or an error.
+            using var resp = await _http.GetAsync($"studies?labels={Uri.EscapeDataString(label)}", ct);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                // Label filtering not supported — return empty list to prevent cross-institution leakage.
+                // Do NOT fall back to GetStudyIdsAsync (that would expose all tenants' studies).
+                return Array.Empty<string>();
+            }
+
+            var ids = await resp.Content.ReadFromJsonAsync<List<string>>(cancellationToken: ct);
+            if (ids is null || ids.Count == 0)
+                return Array.Empty<string>();
+
+            // Safety check: verify each returned study actually has the label.
+            // Some older Orthanc versions ignore the ?labels= query parameter and return everything.
+            var verified = new List<string>(ids.Count);
+            foreach (var id in ids)
+            {
+                using var labelResp = await _http.GetAsync($"studies/{id}/labels/{Uri.EscapeDataString(label)}", ct);
+                if (labelResp.IsSuccessStatusCode)
+                    verified.Add(id);
+            }
+
+            return verified;
+        }
+
     }
 }

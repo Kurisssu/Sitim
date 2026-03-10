@@ -82,6 +82,10 @@
         {
             studies = await Api.GetLocalStudiesAsync();
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            // Token cleared (e.g. during logout) — silently ignore, navigation will redirect to /login.
+        }
         catch (HttpRequestException)
         {
             Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut conecta la API. Verificați dacă serverul API rulează.");
@@ -98,7 +102,11 @@
         try
         {
             var count = await Api.SyncAllStudiesAsync();
-            Notification.Notify(NotificationSeverity.Success, "Sincronizare completă", $"{count} studii sincronizate din Orthanc.");
+            var msg = count == 0
+                ? "Nu există studii noi pentru această instituție în Orthanc."
+                : $"{count} {(count == 1 ? "studiu sincronizat" : "studii sincronizate")} din Orthanc.";
+            var severity = count == 0 ? NotificationSeverity.Info : NotificationSeverity.Success;
+            Notification.Notify(severity, "Sincronizare completă", msg);
             await LoadStudies();
         }
         catch (Exception ex)

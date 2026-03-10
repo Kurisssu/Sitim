@@ -10,8 +10,11 @@ public sealed class AuthTokenStore
     public Guid? UserId { get; set; }
     public string? Email { get; set; }
     public List<string> Roles { get; set; } = [];
+    public Guid? InstitutionId { get; set; }
+    public string? InstitutionName { get; set; }
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(Token);
+    public bool IsSuperAdmin => Roles.Contains("SuperAdmin");
 
     public void Clear()
     {
@@ -19,5 +22,7 @@ public sealed class AuthTokenStore
         UserId = null;
         Email = null;
         Roles = [];
+        InstitutionId = null;
+        InstitutionName = null;
     }
 }

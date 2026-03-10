@@ -1,4 +1,4 @@
-﻿using Hangfire;
+using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
@@ -52,6 +52,9 @@ builder.Services.AddCors(options =>
 // Controllers
 builder.Services.AddControllers();
 
+// IHttpContextAccessor (needed by HttpContextTenantContext)
+builder.Services.AddHttpContextAccessor();
+
 // Swagger (better for rapid manual testing than the minimal OpenAPI endpoint)
 
 builder.Services.AddEndpointsApiExplorer();
@@ -91,8 +94,12 @@ builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection("Sto
 var dbConnectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:Default");
 
-builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(dbConnectionString));
+builder.Services.AddDbContext<AppDbContext>((sp, opt) =>
+{
+    opt.UseNpgsql(dbConnectionString);
+});
+// Tenant context – reads institution_id from current HTTP request's JWT claims
+builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddIdentityCore<ApplicationUser>(opt =>
 {
     // Keep dev password policy reasonable; tighten in production.

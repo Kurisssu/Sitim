@@ -1,0 +1,210 @@
+@page "/institutions"
+@using Sitim.Web.Services
+@inject SitimApiClient Api
+@inject NotificationService NotificationService
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin")]
+
+<PageTitle>Gestionare Instituții – SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="8">
+            <RadzenText Text="Instituții" TextStyle="TextStyle.H4" />
+            <RadzenText Text="Gestionarea instituțiilor (tenants) înregistrate în platformă." TextStyle="TextStyle.Body2" style="color: var(--rz-text-tertiary-color);" />
+        </RadzenColumn>
+        <RadzenColumn Size="4" class="rz-text-align-end">
+            <RadzenButton Text="Instituție nouă" Icon="add" ButtonStyle="ButtonStyle.Primary"
+                          Click="@OpenCreateDialog" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (_loading)
+    {
+        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else
+    {
+        <RadzenDataGrid Data="@_institutions" TItem="SitimApiClient.InstitutionResult"
+                        AllowSorting="true" AllowPaging="true" PageSize="20"
+                        EmptyText="Nu există instituții înregistrate.">
+            <Columns>
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="Name" Title="Denumire" />
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="Slug" Title="Slug" />
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="OrthancLabel" Title="Label Orthanc" />
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Title="Status" Width="120px">
+                    <Template Context="row">
+                        @if (row.IsActive)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="CreatedAtUtc" Title="Creat la" FormatString="{0:yyyy-MM-dd}" />
+                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Title="Acțiuni" Width="150px" Sortable="false">
+                    <Template Context="row">
+                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                      Click="@(() => OpenEditDialog(row))" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    }
+</RadzenStack>
+
+@* Create dialog *@
+@if (_showCreateDialog)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            <RadzenText Text="Instituție nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
+            <RadzenStack Gap="1rem">
+                <RadzenFormField Text="Denumire *" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_newName" Placeholder="ex: Spitalul Clinic Județean Cluj" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenFormField Text="Slug *" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_newSlug" Placeholder="ex: scj-cluj" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenFormField Text="Label Orthanc *" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_newOrthancLabel" Placeholder="ex: scj-cluj" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="Creare" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@CreateInstitution" IsBusy="@_saving" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    </div>
+}
+
+@* Edit dialog *@
+@if (_showEditDialog && _editTarget is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            <RadzenText Text="Editare instituție" TextStyle="TextStyle.H6" class="rz-mb-4" />
+            <RadzenStack Gap="1rem">
+                <RadzenFormField Text="Denumire *" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_editName" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenCheckBox @bind-Value="_editIsActive" Name="isActive" />
+                    <RadzenLabel Text="Activ" Component="isActive" />
+                </RadzenStack>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="Salvare" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@UpdateInstitution" IsBusy="@_saving" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    </div>
+}
+
+@code {
+    private List<SitimApiClient.InstitutionResult> _institutions = [];
+    private bool _loading = true;
+    private bool _saving = false;
+
+    // Create dialog state
+    private bool _showCreateDialog = false;
+    private string _newName = "";
+    private string _newSlug = "";
+    private string _newOrthancLabel = "";
+
+    // Edit dialog state
+    private bool _showEditDialog = false;
+    private SitimApiClient.InstitutionResult? _editTarget = null;
+    private string _editName = "";
+    private bool _editIsActive = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _institutions = await Api.GetInstitutionsAsync();
+        _loading = false;
+    }
+
+    private void OpenCreateDialog()
+    {
+        _newName = _newSlug = _newOrthancLabel = "";
+        _showCreateDialog = true;
+        _showEditDialog = false;
+    }
+
+    private void OpenEditDialog(SitimApiClient.InstitutionResult inst)
+    {
+        _editTarget = inst;
+        _editName = inst.Name;
+        _editIsActive = inst.IsActive;
+        _showEditDialog = true;
+        _showCreateDialog = false;
+    }
+
+    private void CloseDialogs()
+    {
+        _showCreateDialog = false;
+        _showEditDialog = false;
+    }
+
+    private async Task CreateInstitution()
+    {
+        if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newSlug) || string.IsNullOrWhiteSpace(_newOrthancLabel))
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Completați toate câmpurile obligatorii.");
+            return;
+        }
+
+        _saving = true;
+        var result = await Api.CreateInstitutionAsync(_newName, _newSlug, _newOrthancLabel);
+        _saving = false;
+
+        if (result is not null)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, $"Instituția '{result.Name}' a fost creată.");
+            CloseDialogs();
+            await LoadAsync();
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la crearea instituției. Verificați că slug-ul și label-ul sunt unice.");
+        }
+    }
+
+    private async Task UpdateInstitution()
+    {
+        if (_editTarget is null || string.IsNullOrWhiteSpace(_editName)) return;
+
+        _saving = true;
+        var result = await Api.UpdateInstitutionAsync(_editTarget.Id, _editName, _editIsActive);
+        _saving = false;
+
+        if (result is not null)
+        {
+            NotificationService.Notify(NotificationSeverity.Success, "Instituția a fost actualizată.");
+            CloseDialogs();
+            await LoadAsync();
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la actualizarea instituției.");
+        }
+    }
+}

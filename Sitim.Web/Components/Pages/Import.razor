@@ -1,5 +1,5 @@
 @page "/import"
-@attribute [Authorize(Roles = "Admin,Technician")]
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Technician")]
 @inject SitimApiClient Api
 @inject NotificationService Notification
 @inject NavigationManager Navigation

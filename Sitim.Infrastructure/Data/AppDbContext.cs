@@ -2,14 +2,22 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Sitim.Core.Entities;
+using Sitim.Core.Services;
 using Sitim.Infrastructure.Identity;
 
 namespace Sitim.Infrastructure.Data
 {
     public sealed class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        private readonly ITenantContext _tenantContext;
 
+        public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext)
+            : base(options)
+        {
+            _tenantContext = tenantContext;
+        }
+
+        public DbSet<Institution> Institutions => Set<Institution>();
         public DbSet<Patient> Patients => Set<Patient>();
         public DbSet<ImagingStudy> ImagingStudies => Set<ImagingStudy>();
         public DbSet<ImagingSeries> ImagingSeries => Set<ImagingSeries>();
@@ -19,6 +27,19 @@ namespace Sitim.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<Institution>(b =>
+            {
+                b.ToTable("institutions");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Name).HasMaxLength(256).IsRequired();
+                b.Property(x => x.Slug).HasMaxLength(64).IsRequired();
+                b.HasIndex(x => x.Slug).IsUnique();
+                b.Property(x => x.OrthancLabel).HasMaxLength(64).IsRequired();
+                b.HasIndex(x => x.OrthancLabel).IsUnique();
+                b.Property(x => x.IsActive).HasDefaultValue(true);
+                b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
+            });
+
             modelBuilder.Entity<Patient>(b =>
             {
                 b.ToTable("patients");
@@ -26,8 +47,16 @@ namespace Sitim.Infrastructure.Data
                 b.Property(x => x.PatientId).HasMaxLength(128);
                 b.Property(x => x.PatientName).HasMaxLength(256);
                 b.HasIndex(x => x.PatientId);
+                b.Property(x => x.InstitutionId).HasColumnName("institution_id");
+                b.HasIndex(x => x.InstitutionId);
                 b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
                 b.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
+
+                // Global Query Filter: scope to current institution.
+                // When InstitutionId is null (SuperAdmin / background jobs), all records are visible.
+                b.HasQueryFilter(p =>
+                    _tenantContext.InstitutionId == null ||
+                    p.InstitutionId == _tenantContext.InstitutionId);
             });
 
             modelBuilder.Entity<ImagingStudy>(b =>
@@ -46,6 +75,9 @@ namespace Sitim.Infrastructure.Data
                 // PostgreSQL text[] mapping via Npgsql
                 b.Property(x => x.ModalitiesInStudy).HasColumnName("modalities_in_study");
 
+                b.Property(x => x.InstitutionId).HasColumnName("institution_id");
+                b.HasIndex(x => x.InstitutionId);
+
                 b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
                 b.Property(x => x.UpdatedAtUtc).HasColumnName("updated_at_utc");
 
@@ -53,6 +85,11 @@ namespace Sitim.Infrastructure.Data
                     .WithMany(p => p.Studies)
                     .HasForeignKey(x => x.PatientDbId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // Global Query Filter
+                b.HasQueryFilter(s =>
+                    _tenantContext.InstitutionId == null ||
+                    s.InstitutionId == _tenantContext.InstitutionId);
             });
 
             modelBuilder.Entity<ImagingSeries>(b =>
@@ -69,8 +106,6 @@ namespace Sitim.Infrastructure.Data
                     .WithMany(s => s.Series)
                     .HasForeignKey(x => x.StudyDbId)
                     .OnDelete(DeleteBehavior.Cascade);
-
-
             });
 
             modelBuilder.Entity<AnalysisJob>(b =>
@@ -94,8 +129,17 @@ namespace Sitim.Infrastructure.Data
 
                 b.Property(x => x.StudyArchivePath).HasColumnName("study_archive_path");
                 b.Property(x => x.ResultJsonPath).HasColumnName("result_json_path");
-            });
 
+                b.Property(x => x.InstitutionId).HasColumnName("institution_id");
+                b.HasIndex(x => x.InstitutionId);
+
+                b.Property(x => x.CreatedByUserId).HasColumnName("created_by_user_id");
+
+                // Global Query Filter
+                b.HasQueryFilter(j =>
+                    _tenantContext.InstitutionId == null ||
+                    j.InstitutionId == _tenantContext.InstitutionId);
+            });
         }
     }
 }

@@ -4,5 +4,10 @@
 
     public sealed record AuthResponse(string AccessToken, int ExpiresInSeconds);
 
-    public sealed record MeResponse(Guid UserId, string Email, IReadOnlyList<string> Roles);
+    public sealed record MeResponse(
+        Guid UserId,
+        string Email,
+        IReadOnlyList<string> Roles,
+        Guid? InstitutionId,
+        string? InstitutionName);
 }

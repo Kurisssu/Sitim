@@ -16,13 +16,17 @@
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                             <RadzenSidebarToggle Click="@SidebarToggleClick"></RadzenSidebarToggle>
                             <RadzenText Text="SITIM" TextStyle="TextStyle.H5" class="rz-mb-0 rz-display-none rz-display-sm-inline" style="color: var(--rz-text-color);" />
+                            @if (!string.IsNullOrWhiteSpace(TokenStore.InstitutionName))
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@TokenStore.InstitutionName" />
+                            }
                         </RadzenStack>
                     </RadzenColumn>
                     <RadzenColumn Size="7">
                         <RadzenStack AlignItems="AlignItems.Center" Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-px-2">
                             <RadzenIcon Icon="person" style="color: var(--rz-text-color);" />
                             <RadzenText Text="@TokenStore.Email" TextStyle="TextStyle.Body2" class="rz-mb-0" style="color: var(--rz-text-color);" />
-                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@string.Join(", ", TokenStore.Roles)" />
+                            <RadzenBadge BadgeStyle="@RoleBadgeStyle()" Text="@string.Join(", ", TokenStore.Roles)" />
                             <RadzenButton Text="Deconectare" Icon="logout" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="@OnLogout" />
                             <RadzenAppearanceToggle />
                         </RadzenStack>
@@ -42,13 +46,23 @@
                     <RadzenText Text="Suportul diagnosticului imagistic" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
                 </RadzenStack>
                 <RadzenPanelMenu>
-                    <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="" />
-                    <AuthorizeView Roles="Admin,Technician">
+                    <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
+                        <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin,Technician">
                         <RadzenPanelMenuItem Text="Import studii" Icon="cloud_upload" Path="import" />
                     </AuthorizeView>
-                    <RadzenPanelMenuItem Text="Analize" Icon="science" Path="analyses" />
-                    <AuthorizeView Roles="Admin">
+                    <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
+                        <RadzenPanelMenuItem Text="Analize" Icon="science" Path="analyses" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin">
+                        <RadzenPanelMenuItem Text="Utilizatori" Icon="group" Path="users" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin">
                         <RadzenPanelMenuItem Text="Administrare" Icon="admin_panel_settings" Path="admin" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin">
+                        <RadzenPanelMenuItem Text="Instituții" Icon="business" Path="institutions" />
                     </AuthorizeView>
                 </RadzenPanelMenu>
             </RadzenSidebar>
@@ -65,6 +79,13 @@
     void SidebarToggleClick()
     {
         sidebarExpanded = !sidebarExpanded;
+    }
+
+    BadgeStyle RoleBadgeStyle()
+    {
+        if (TokenStore.IsSuperAdmin) return BadgeStyle.Danger;
+        if (TokenStore.Roles.Contains("Admin")) return BadgeStyle.Warning;
+        return BadgeStyle.Info;
     }
 
     async Task OnLogout()

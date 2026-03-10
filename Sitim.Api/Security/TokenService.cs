@@ -10,7 +10,11 @@ namespace Sitim.Api.Security
 {
     public interface ITokenService
     {
-        (string token, int expiresInSeconds) CreateAccessToken(ApplicationUser user, IReadOnlyList<string> roles);
+        (string token, int expiresInSeconds) CreateAccessToken(
+            ApplicationUser user,
+            IReadOnlyList<string> roles,
+            Guid? institutionId = null,
+            string? institutionSlug = null);
     }
 
     public sealed class TokenService : ITokenService
@@ -22,20 +26,31 @@ namespace Sitim.Api.Security
             _opt = opt.Value;
         }
 
-        public (string token, int expiresInSeconds) CreateAccessToken(ApplicationUser user, IReadOnlyList<string> roles)
+        public (string token, int expiresInSeconds) CreateAccessToken(
+            ApplicationUser user,
+            IReadOnlyList<string> roles,
+            Guid? institutionId = null,
+            string? institutionSlug = null)
         {
             var now = DateTime.UtcNow;
             var expires = now.AddMinutes(_opt.AccessTokenMinutes);
 
             var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-            new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-        };
+            {
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+                new(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            };
 
             foreach (var r in roles)
                 claims.Add(new Claim(ClaimTypes.Role, r));
+
+            // Add institution claims when user belongs to an institution
+            if (institutionId.HasValue)
+                claims.Add(new Claim("institution_id", institutionId.Value.ToString()));
+
+            if (!string.IsNullOrWhiteSpace(institutionSlug))
+                claims.Add(new Claim("institution_slug", institutionSlug));
 
             var keyBytes = Encoding.UTF8.GetBytes(_opt.SigningKey);
             var key = new SymmetricSecurityKey(keyBytes);

@@ -112,6 +112,8 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider
         _store.UserId = me.UserId;
         _store.Email = me.Email;
         _store.Roles = me.Roles;
+        _store.InstitutionId = me.InstitutionId;
+        _store.InstitutionName = me.InstitutionName;
 
         // Persist JWT in browser cookie via JS interop
         await _js.InvokeVoidAsync("sitimAuth.setCookie",
@@ -125,7 +127,11 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider
     {
         _store.Clear();
         await _js.InvokeVoidAsync("sitimAuth.clearCookie");
-        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+        // NotifyAuthenticationStateChanged is intentionally omitted here.
+        // The caller must navigate with forceLoad: true, which tears down the entire Blazor
+        // circuit and starts a fresh one — no token in store, no cookie → user is anonymous.
+        // Calling Notify before navigation would cause all mounted components to re-render
+        // in an unauthenticated state (triggering API calls that return 401).
     }
 
     private AuthenticationState BuildAuthState()
