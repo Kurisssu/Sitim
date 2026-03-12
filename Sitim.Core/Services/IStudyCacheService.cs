@@ -30,5 +30,12 @@ namespace Sitim.Core.Services
         /// Returns how many studies were synced.
         /// </summary>
         Task<int> SyncAllFromOrthancAsync(CancellationToken ct);
+
+        /// <summary>
+        /// Permanently deletes a study from Orthanc and removes it from the local DB.
+        /// Also removes the patient record if it has no remaining studies.
+        /// Returns true if deleted, false if not found.
+        /// </summary>
+        Task<bool> DeleteStudyAsync(string orthancStudyId, CancellationToken ct);
     }
 }

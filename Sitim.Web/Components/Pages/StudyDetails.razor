@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject NotificationService Notification
 @inject DialogService Dialog
+@inject AuthTokenStore TokenStore
 
 <PageTitle>Studiu — SITIM</PageTitle>
 
@@ -54,8 +55,11 @@ else
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenFormField Text="Orthanc ID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@study.OrthancStudyId" Style="width: 100%; font-family: monospace;" /></ChildContent></RadzenFormField>
-                        <RadzenFormField Text="Study Instance UID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.StudyInstanceUid ?? "—")" Style="width: 100%; font-family: monospace; font-size: 0.85rem;" /></ChildContent></RadzenFormField>
+                        @if (!IsDoctor)
+                        {
+                            <RadzenFormField Text="Orthanc ID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@study.OrthancStudyId" Style="width: 100%; font-family: monospace;" /></ChildContent></RadzenFormField>
+                            <RadzenFormField Text="Study Instance UID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.StudyInstanceUid ?? "—")" Style="width: 100%; font-family: monospace; font-size: 0.85rem;" /></ChildContent></RadzenFormField>
+                        }
                         <div>
                             <RadzenText Text="Modalități" TextStyle="TextStyle.Body2" class="rz-mb-1" style="color: var(--rz-text-tertiary-color);" />
                             @foreach (var mod in study.ModalitiesInStudy)
@@ -66,7 +70,10 @@ else
                     </RadzenStack>
                 </RadzenColumn>
             </RadzenRow>
-            <RadzenText Text="@($"Serii: {study.SeriesOrthancIds.Count}")" TextStyle="TextStyle.Caption" class="rz-mt-3" style="color: var(--rz-text-tertiary-color);" />
+            @if (!IsDoctor)
+            {
+                <RadzenText Text="@($"Serii: {study.SeriesOrthancIds.Count}")" TextStyle="TextStyle.Caption" class="rz-mt-3" style="color: var(--rz-text-tertiary-color);" />
+            }
         </RadzenCard>
 
         @* ── OHIF Viewer ─────────────────────────────────── *@
@@ -82,6 +89,11 @@ else
                             <RadzenButton Text="Deschide în tab nou" Icon="open_in_new" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                                           Click="@OpenViewerExternal" />
                         }
+                        else if (viewerUnavailable)
+                        {
+                            <RadzenButton Text="Reîncearcă viewer" Icon="refresh" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="Se încarcă..." />
+                        }
                         else
                         {
                             <RadzenButton Text="Încarcă viewer" Icon="play_arrow" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
@@ -96,6 +108,15 @@ else
                 <div style="width: 100%; height: 600px; border: 1px solid var(--rz-border-color); border-radius: var(--rz-border-radius);">
                     <iframe src="@viewerUrl" style="width: 100%; height: 100%; border: none; border-radius: var(--rz-border-radius);" allowfullscreen></iframe>
                 </div>
+            }
+            else if (viewerUnavailable)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" AllowClose="false" class="rz-my-2">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenIcon Icon="cloud_off" />
+                        <span>Serverul PACS (Orthanc) nu este disponibil momentan. Vizualizatorul OHIF nu poate fi deschis.</span>
+                    </RadzenStack>
+                </RadzenAlert>
             }
             else
             {
@@ -140,9 +161,12 @@ else
 @code {
     [Parameter] public string OrthancStudyId { get; set; } = "";
 
+    private bool IsDoctor => TokenStore.Roles.Contains("Doctor") && !TokenStore.IsSuperAdmin;
+
     private Sitim.Core.Models.StudyDetails? study;
     private List<AnalysisJobDto> analyses = [];
     private string? viewerUrl;
+    private bool viewerUnavailable;
     private bool isLoading = true;
     private bool isLoadingViewer;
 
@@ -175,14 +199,19 @@ else
     private async Task LoadViewerUrl()
     {
         isLoadingViewer = true;
+        viewerUnavailable = false;
         try
         {
             viewerUrl = await Api.GetViewerLinkAsync(OrthancStudyId);
             if (string.IsNullOrWhiteSpace(viewerUrl))
-                Notification.Notify(NotificationSeverity.Warning, "Viewer", "Nu s-a putut obține link-ul OHIF.");
+            {
+                viewerUnavailable = true;
+                Notification.Notify(NotificationSeverity.Warning, "Viewer indisponibil", "Serverul PACS (Orthanc) nu este disponibil momentan.");
+            }
         }
         catch (Exception ex)
         {
+            viewerUnavailable = true;
             Notification.Notify(NotificationSeverity.Error, "Eroare viewer", ex.Message);
         }
         finally

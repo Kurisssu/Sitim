@@ -91,6 +91,13 @@ public sealed class SitimApiClient
         return result?.Synced ?? 0;
     }
 
+    public async Task<bool> DeleteStudyAsync(string orthancStudyId)
+    {
+        AttachToken();
+        var resp = await _http.DeleteAsync($"api/local/studies/{orthancStudyId}");
+        return resp.IsSuccessStatusCode;
+    }
+
     // ── Orthanc studies (viewer link) ────────────────────
 
     public async Task<string?> GetViewerLinkAsync(string orthancStudyId)
@@ -166,13 +173,13 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<ImportResult>(JsonOpts);
     }
 
-    public async Task<ImportResult?> ImportFilesAsync(IEnumerable<(Stream stream, string name)> files)
+    public async Task<ImportResult?> ImportFilesAsync(IEnumerable<(byte[] data, string name)> files)
     {
         AttachToken();
         using var content = new MultipartFormDataContent();
-        foreach (var (stream, name) in files)
+        foreach (var (data, name) in files)
         {
-            var sc = new StreamContent(stream);
+            var sc = new ByteArrayContent(data);
             sc.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             content.Add(sc, "Files", name);
         }

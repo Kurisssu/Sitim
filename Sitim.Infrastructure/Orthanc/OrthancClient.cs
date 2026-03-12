@@ -32,7 +32,7 @@ namespace Sitim.Infrastructure.Orthanc
             if (string.IsNullOrWhiteSpace(orthancStudyId))
                 throw new ArgumentException("orthancStudyId is required", nameof(orthancStudyId));
 
-            using var resp = await _http.GetAsync($"studies/{orthancStudyId}", ct);
+            using var resp = await _http.GetAsync($"studies/{orthancStudyId}?requestedTags=ModalitiesInStudy", ct);
 
             if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return null;
@@ -61,7 +61,25 @@ namespace Sitim.Infrastructure.Orthanc
             var patientName = GetTag(root, "PatientMainDicomTags", "PatientName");
 
             var modalities = new List<string>();
-            if (root.TryGetProperty("ModalitiesInStudy", out var mods) && mods.ValueKind == JsonValueKind.Array)
+
+            // 1) Orthanc computes ModalitiesInStudy from series when requested via ?requestedTags=
+            // and returns it in the "RequestedTags" object.
+            var modalityStr = GetTag(root, "RequestedTags", "ModalitiesInStudy");
+
+            // 2) Fallback: some datasets store it directly in MainDicomTags (0008,0061).
+            if (string.IsNullOrWhiteSpace(modalityStr))
+                modalityStr = GetTag(root, "MainDicomTags", "ModalitiesInStudy");
+
+            if (!string.IsNullOrWhiteSpace(modalityStr))
+            {
+                // DICOM multi-value strings use backslash as separator: "CT\MR"
+                modalities.AddRange(modalityStr.Split('\\', StringSplitOptions.RemoveEmptyEntries));
+            }
+
+            // 3) Last resort: top-level array (older Orthanc versions).
+            if (modalities.Count == 0 &&
+                root.TryGetProperty("ModalitiesInStudy", out var mods) &&
+                mods.ValueKind == JsonValueKind.Array)
             {
                 foreach (var m in mods.EnumerateArray())
                 {
@@ -211,6 +229,29 @@ namespace Sitim.Infrastructure.Orthanc
             }
 
             return verified;
+        }
+
+        /// <inheritdoc/>
+        public async Task<bool> DeleteStudyAsync(string orthancStudyId, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(orthancStudyId))
+                throw new ArgumentException("orthancStudyId is required", nameof(orthancStudyId));
+
+            using var resp = await _http.DeleteAsync($"studies/{orthancStudyId}", ct);
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return false;
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                throw new HttpRequestException(
+                    $"Orthanc delete study failed ({(int)resp.StatusCode} {resp.ReasonPhrase}). Body: {body}",
+                    null,
+                    resp.StatusCode);
+            }
+
+            return true;
         }
 
     }

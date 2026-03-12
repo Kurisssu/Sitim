@@ -243,5 +243,49 @@ namespace Sitim.Infrastructure.Services
             ModalitiesInStudy: s.ModalitiesInStudy,
             SeriesOrthancIds: s.Series.Select(x => x.OrthancSeriesId).ToList()
         );
+
+        public async Task<bool> DeleteStudyAsync(string orthancStudyId, CancellationToken ct)
+        {
+            // 1. Delete from Orthanc first — if this fails, we stop (DB stays consistent).
+            var deleted = await _orthanc.DeleteStudyAsync(orthancStudyId, ct);
+            if (!deleted)
+                return false;
+
+            // 2. Remove from local DB (IgnoreQueryFilters so SuperAdmin can delete any study).
+            var study = await _db.ImagingStudies
+                .IgnoreQueryFilters()
+                .Include(x => x.Patient)
+                .FirstOrDefaultAsync(x => x.OrthancStudyId == orthancStudyId, ct);
+
+            if (study is null)
+                return true; // Already gone from DB — that's fine.
+
+            var patientDbId = study.PatientDbId;
+            _db.ImagingStudies.Remove(study);
+            await _db.SaveChangesAsync(ct);
+
+            // 3. Remove patient if it has no remaining studies.
+            if (patientDbId.HasValue)
+            {
+                var hasOtherStudies = await _db.ImagingStudies
+                    .IgnoreQueryFilters()
+                    .AnyAsync(x => x.PatientDbId == patientDbId, ct);
+
+                if (!hasOtherStudies)
+                {
+                    var patient = await _db.Patients
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(x => x.Id == patientDbId, ct);
+
+                    if (patient is not null)
+                    {
+                        _db.Patients.Remove(patient);
+                        await _db.SaveChangesAsync(ct);
+                    }
+                }
+            }
+
+            return true;
+        }
     }
 }

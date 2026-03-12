@@ -4,6 +4,7 @@
 @inject NavigationManager Navigation
 @inject NotificationService Notification
 @inject SitimAuthStateProvider AuthProvider
+@inject AuthTokenStore TokenStore
 
 <PageTitle>Lista de studii — SITIM</PageTitle>
 
@@ -54,10 +55,16 @@
                         <RadzenText Text="@Truncate(study.OrthancStudyId, 16)" TextStyle="TextStyle.Caption" style="font-family: monospace;" />
                     </Template>
                 </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="StudySummary" Title="Acțiuni" Width="140px" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
+                <RadzenDataGridColumn TItem="StudySummary" Title="Acțiuni" Width="@(IsAdminOrAbove ? "160px" : "100px")" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
                     <Template Context="study">
                         <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
                                       Click="@(args => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
+                        @if (IsAdminOrAbove)
+                        {
+                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small"
+                                          Click="@(args => ConfirmDelete(study))" title="Șterge studiu"
+                                          style="margin-left:4px;" />
+                        }
                     </Template>
                 </RadzenDataGridColumn>
             </Columns>
@@ -65,10 +72,43 @@
     }
 </RadzenStack>
 
+@* ── Confirm delete dialog ── *@
+@if (_showDeleteDialog && _deleteTarget is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
+        <RadzenCard Style="min-width:400px;max-width:520px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+            <RadzenStack Gap="1rem">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                    <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
+                    <RadzenText Text="Confirmare ștergere studiu" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                </RadzenStack>
+                <RadzenText>
+                    Ești sigur că vrei să ștergi definitiv studiul pacientului
+                    <strong>@(_deleteTarget.PatientName ?? _deleteTarget.PatientId ?? "necunoscut")</strong>
+                    din data <strong>@FormatStudyDate(_deleteTarget.StudyDate)</strong>?<br />
+                    Studiul va fi eliminat din Orthanc și din baza de date. Această acțiune nu poate fi anulată.
+                </RadzenText>
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
+                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDeleteDialog" Disabled="@_deleting" />
+                    <RadzenButton Text="Șterge definitiv" Icon="delete" ButtonStyle="ButtonStyle.Danger"
+                                  Click="@DoDelete" IsBusy="@_deleting" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    </div>
+}
+
 @code {
     private List<StudySummary> studies = [];
     private bool isLoading = true;
     private bool isSyncing;
+
+    private bool _showDeleteDialog = false;
+    private StudySummary? _deleteTarget;
+    private bool _deleting = false;
+
+    private bool IsAdminOrAbove =>
+        TokenStore.IsSuperAdmin || TokenStore.Roles.Contains("Admin");
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,9 +159,43 @@
         }
     }
 
+    private void ConfirmDelete(StudySummary study)
+    {
+        _deleteTarget = study;
+        _showDeleteDialog = true;
+    }
+
+    private void CloseDeleteDialog()
+    {
+        _showDeleteDialog = false;
+        _deleteTarget = null;
+    }
+
+    private async Task DoDelete()
+    {
+        if (_deleteTarget is null) return;
+
+        _deleting = true;
+        var ok = await Api.DeleteStudyAsync(_deleteTarget.OrthancStudyId);
+        _deleting = false;
+
+        if (ok)
+        {
+            Notification.Notify(NotificationSeverity.Success, "Studiu șters",
+                $"Studiul pacientului {_deleteTarget.PatientName ?? _deleteTarget.PatientId ?? "necunoscut"} a fost șters definitiv.");
+            CloseDeleteDialog();
+            await LoadStudies();
+        }
+        else
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut șterge studiul. Verificați conexiunea cu Orthanc.");
+        }
+    }
+
     private void OnRowClick(DataGridRowMouseEventArgs<StudySummary> args)
     {
-        GoToStudy(args.Data.OrthancStudyId);
+        if (!_showDeleteDialog)
+            GoToStudy(args.Data.OrthancStudyId);
     }
 
     private void GoToStudy(string orthancStudyId)
