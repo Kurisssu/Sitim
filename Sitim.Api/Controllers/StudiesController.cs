@@ -5,6 +5,8 @@ using Sitim.Core.Models;
 using Sitim.Core.Services;
 using Sitim.Api.Security;
 using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Sitim.Api.Controllers
 {
@@ -15,11 +17,22 @@ namespace Sitim.Api.Controllers
     {
         private readonly IOrthancClient _orthanc;
         private readonly OhifOptions _ohif;
+        private readonly IStudyCacheService _cache;
+        private readonly IViewerTokenService _viewerTokenService;
+        private readonly ITenantContext _tenantContext;
 
-        public StudiesController(IOrthancClient orthanc, IOptions<OhifOptions> ohif)
+        public StudiesController(
+            IOrthancClient orthanc,
+            IOptions<OhifOptions> ohif,
+            IStudyCacheService cache,
+            IViewerTokenService viewerTokenService,
+            ITenantContext tenantContext)
         {
             _orthanc = orthanc;
             _ohif = ohif.Value;
+            _cache = cache;
+            _viewerTokenService = viewerTokenService;
+            _tenantContext = tenantContext;
         }
 
         /// <summary>
@@ -107,25 +120,44 @@ namespace Sitim.Api.Controllers
         [HttpGet("{orthancStudyId}/viewer-link")]
         public async Task<ActionResult<object>> GetViewerLink(string orthancStudyId, CancellationToken ct)
         {
-            OrthancStudyDetails? d;
-            try
+            // Use local cache first to enforce tenant scoping via query filters.
+            var local = await _cache.GetLocalAsync(orthancStudyId, ct);
+            if (local is null)
+                return NotFound("Study not found.");
+
+            var studyUid = local.StudyInstanceUid;
+            if (string.IsNullOrWhiteSpace(studyUid))
             {
-                d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
-            }
-            catch (HttpRequestException)
-            {
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                // Try to refresh from Orthanc if DB record has missing UID.
+                try
+                {
+                    var synced = await _cache.SyncFromOrthancAsync(orthancStudyId, ct);
+                    studyUid = synced?.StudyInstanceUid;
+                }
+                catch (HttpRequestException)
+                {
+                    return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                }
             }
 
-            if (d is null) return NotFound("Study not found in Orthanc.");
+            if (string.IsNullOrWhiteSpace(studyUid))
+                return Problem(statusCode: 500, title: "StudyInstanceUID is missing for this study.");
 
-            if (string.IsNullOrWhiteSpace(d.StudyInstanceUid))
-                return Problem(statusCode: 500, title: "StudyInstanceUID is missing in Orthanc response.");
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var (viewerToken, _) = _viewerTokenService.CreateViewerToken(
+                userId: userId,
+                institutionId: _tenantContext.InstitutionId,
+                studyInstanceUid: studyUid,
+                isSuperAdmin: _tenantContext.IsSuperAdmin);
 
             var baseUrl = (_ohif.BaseUrl ?? "").TrimEnd('/');
-            var uid = Uri.EscapeDataString(d.StudyInstanceUid);
+            var uid = Uri.EscapeDataString(studyUid);
+            var token = Uri.EscapeDataString(viewerToken);
 
-            var url = $"{baseUrl}/viewer?StudyInstanceUIDs={uid}";
+            var url = $"{baseUrl}/viewer?StudyInstanceUIDs={uid}&viewerToken={token}";
 
             return Ok(new { url });
         }

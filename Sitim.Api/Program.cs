@@ -115,6 +115,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(opt =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IViewerTokenService, ViewerTokenService>();
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.SigningKey) || jwt.SigningKey.Length < 32)

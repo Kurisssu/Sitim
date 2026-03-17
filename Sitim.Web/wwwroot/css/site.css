@@ -26,11 +26,32 @@ body {
     color: var(--rz-text-color);
     font-size: var(--rz-body-font-size);
     line-height: var(--rz-body-line-height);
-    background-color: var(--rz-body-background-color);
+    background-color: #0b0f16;
+    background-image:
+        radial-gradient(120% 90% at 85% 78%, rgba(109, 96, 255, 0.28) 0%, rgba(109, 96, 255, 0) 62%),
+        radial-gradient(95% 70% at 25% 34%, rgba(35, 147, 255, 0.2) 0%, rgba(35, 147, 255, 0) 58%),
+        radial-gradient(70% 55% at 92% 100%, rgba(255, 153, 61, 0.18) 0%, rgba(255, 153, 61, 0) 56%);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
 }
 
 .rz-body {
     --rz-body-padding: 0;
+}
+
+html,
+body,
+.rz-layout,
+.rz-body,
+.rz-main {
+    min-height: 100%;
+}
+
+.rz-layout,
+.rz-body,
+.rz-main {
+    background: transparent !important;
 }
 
 a {
