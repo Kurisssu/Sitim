@@ -14,7 +14,9 @@
                 <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0">
                     <RadzenColumn Size="5">
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                            <RadzenSidebarToggle Click="@SidebarToggleClick"></RadzenSidebarToggle>
+                            <div @onmouseenter="OnSidebarHandleMouseEnter">
+                                <RadzenSidebarToggle Click="@SidebarToggleClick"></RadzenSidebarToggle>
+                            </div>
                             <RadzenText Text="SITIM" TextStyle="TextStyle.H5" class="rz-mb-0 rz-display-none rz-display-sm-inline" style="color: var(--rz-text-color);" />
                             @if (!string.IsNullOrWhiteSpace(TokenStore.InstitutionName))
                             {
@@ -40,14 +42,17 @@
                     </RadzenColumn>
                 </RadzenRow>
             </RadzenBody>
-            <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+            <RadzenSidebar @bind-Expanded="@sidebarExpanded" @onmouseenter="OnSidebarMouseEnter" @onmouseleave="OnSidebarMouseLeave">
                 <RadzenStack AlignItems="Radzen.AlignItems.Center" class="rz-py-4 rz-py-lg-6" Style="padding: var(--rz-panel-menu-item-padding); border-bottom: var(--rz-panel-menu-item-border);">
                     <RadzenIcon Icon="biotech" style="font-size: 60px; color: var(--rz-primary);" />
                     <RadzenText Text="Suportul diagnosticului imagistic" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
                 </RadzenStack>
                 <RadzenPanelMenu>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="" />
+                        <RadzenPanelMenuItem Text="Bun venit" Icon="home" Path="" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
+                        <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="studies" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
                         <RadzenPanelMenuItem Text="Import studii" Icon="cloud_upload" Path="import" />
@@ -74,11 +79,26 @@
 </AuthorizeView>
 
 @code {
-    bool sidebarExpanded = true;
+    bool sidebarExpanded = false;
 
     void SidebarToggleClick()
     {
         sidebarExpanded = !sidebarExpanded;
+    }
+
+    void OnSidebarHandleMouseEnter()
+    {
+        sidebarExpanded = true;
+    }
+
+    void OnSidebarMouseEnter()
+    {
+        sidebarExpanded = true;
+    }
+
+    void OnSidebarMouseLeave()
+    {
+        sidebarExpanded = false;
     }
 
     BadgeStyle RoleBadgeStyle()

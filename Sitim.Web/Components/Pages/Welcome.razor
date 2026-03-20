@@ -1,0 +1,76 @@
+@page "/"
+@attribute [Authorize]
+@inject NavigationManager Navigation
+@inject AuthTokenStore TokenStore
+
+<PageTitle>Bun venit</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenText Text="Bun venit" TextStyle="TextStyle.DisplayH5" />
+    <RadzenText Text="Alege rapid funcționalitatea dorită." TextStyle="TextStyle.Body2"
+                style="color: var(--rz-text-tertiary-color);" />
+
+    <RadzenRow Gap="1rem">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenIcon Icon="list_alt" style="font-size: 28px; color: var(--rz-primary);" />
+                    <RadzenText Text="Lista de studii" TextStyle="TextStyle.H6" />
+                    <RadzenText Text="Vizualizare și gestionare studii imagistice."
+                                TextStyle="TextStyle.Caption"
+                                style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Primary"
+                                  Click="@(() => Navigation.NavigateTo("/studies"))" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenIcon Icon="cloud_upload" style="font-size: 28px; color: var(--rz-info);" />
+                    <RadzenText Text="Import studii" TextStyle="TextStyle.H6" />
+                    <RadzenText Text="Încarcă fișiere DICOM sau arhive ZIP."
+                                TextStyle="TextStyle.Caption"
+                                style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Secondary"
+                                  Click="@(() => Navigation.NavigateTo("/import"))" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard>
+                <RadzenStack Gap="0.75rem">
+                    <RadzenIcon Icon="science" style="font-size: 28px; color: var(--rz-success);" />
+                    <RadzenText Text="Analize" TextStyle="TextStyle.H6" />
+                    <RadzenText Text="Urmărește execuțiile și rezultatele."
+                                TextStyle="TextStyle.Caption"
+                                style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Success"
+                                  Click="@(() => Navigation.NavigateTo("/analyses"))" />
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (TokenStore.IsSuperAdmin || TokenStore.Roles.Contains("Admin"))
+    {
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenText Text="Secțiuni administrative" TextStyle="TextStyle.Subtitle1" />
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                    <RadzenButton Text="Utilizatori" Icon="group" ButtonStyle="ButtonStyle.Light"
+                                  Click="@(() => Navigation.NavigateTo("/users"))" />
+                    <RadzenButton Text="Administrare" Icon="admin_panel_settings" ButtonStyle="ButtonStyle.Light"
+                                  Click="@(() => Navigation.NavigateTo("/admin"))" />
+                    @if (TokenStore.IsSuperAdmin)
+                    {
+                        <RadzenButton Text="Instituții" Icon="business" ButtonStyle="ButtonStyle.Light"
+                                      Click="@(() => Navigation.NavigateTo("/institutions"))" />
+                    }
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
