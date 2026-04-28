@@ -1,0 +1,119 @@
+@using Sitim.Web.Services
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<RadzenStack Gap="1rem">
+    <RadzenText Text="Selectează modelul AI pentru analiză" TextStyle="TextStyle.H6" class="rz-mb-2" />
+
+    @if (Models == null || !Models.Any())
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false">
+            Nu sunt modele disponibile pentru această modalitate DICOM.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenText Text="@($"Modele compatibile ({Models.Count})")" TextStyle="TextStyle.Caption"
+                    style="color: var(--rz-text-tertiary-color);" />
+
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="5">
+                <div style="display:flex; flex-direction:column; gap:0.5rem; max-height:420px; overflow-y:auto; padding-right:0.25rem;">
+                    @foreach (var model in Models.OrderByDescending(m => m.Accuracy ?? 0))
+                    {
+                        var isSelected = model.Id == SelectedModelId;
+                        <div @onclick="@(() => SelectModel(model.Id))" style="cursor:pointer;">
+                            <RadzenCard Style="@($"border:1px solid {(isSelected ? "var(--rz-primary)" : "var(--rz-border-color)")} ; background:{(isSelected ? "var(--rz-base-200)" : "var(--rz-base-100)")};")">
+                                <RadzenStack Gap="0.25rem">
+                                    <RadzenText Text="@model.Name" TextStyle="TextStyle.Subtitle2" />
+                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"v{model.Version}")" />
+                                        @if (!string.IsNullOrWhiteSpace(model.TargetModality))
+                                        {
+                                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@model.TargetModality" />
+                                        }
+                                        @if (model.Accuracy.HasValue)
+                                        {
+                                            <RadzenText Text="@model.Accuracy.Value.ToString("P1")" TextStyle="TextStyle.Caption" />
+                                        }
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenCard>
+                        </div>
+                    }
+                </div>
+            </RadzenColumn>
+
+            <RadzenColumn Size="12" SizeMD="7">
+                <RadzenCard Style="min-height: 420px;">
+                    @if (SelectedModel is null)
+                    {
+                        <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="height:100%;">
+                            <RadzenText Text="Selectează un model din listă pentru detalii." TextStyle="TextStyle.Body2" />
+                        </RadzenStack>
+                    }
+                    else
+                    {
+                        <RadzenStack Gap="1rem">
+                            <RadzenText Text="@SelectedModel.Name" TextStyle="TextStyle.H6" />
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"v{SelectedModel.Version}")" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@(SelectedModel.TargetModality ?? "Any modality")" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@(SelectedModel.Accuracy?.ToString("P2") ?? "Accuracy n/a")" />
+                            </RadzenStack>
+
+                            <RadzenCard Variant="Variant.Filled" Style="padding:0.75rem;">
+                                <RadzenText Text="Task" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                <RadzenText Text="@SelectedModel.Task" TextStyle="TextStyle.Body1" />
+                            </RadzenCard>
+
+                            <RadzenCard Variant="Variant.Filled" Style="padding:0.75rem;">
+                                <RadzenText Text="Descriere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                <RadzenText Text="@(string.IsNullOrWhiteSpace(SelectedModel.Description) ? "Fără descriere." : SelectedModel.Description)" TextStyle="TextStyle.Body2" />
+                            </RadzenCard>
+                        </RadzenStack>
+                    }
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
+        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text"
+                      Click="@Cancel" />
+        <RadzenButton Text="Pornește Analiză" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
+                      Click="@Select" Disabled="@(SelectedModelId == Guid.Empty)" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public List<SitimApiClient.AIModelSelectionDto>? Models { get; set; }
+
+    private Guid SelectedModelId = Guid.Empty;
+    private SitimApiClient.AIModelSelectionDto? SelectedModel =>
+        Models?.FirstOrDefault(m => m.Id == SelectedModelId);
+
+    protected override void OnParametersSet()
+    {
+        if (SelectedModelId == Guid.Empty && Models?.Any() == true)
+            SelectedModelId = Models.OrderByDescending(m => m.Accuracy ?? 0).First().Id;
+    }
+
+    private void Select()
+    {
+        if (SelectedModelId != Guid.Empty)
+        {
+            DialogService.Close(SelectedModelId);
+        }
+    }
+
+    private void SelectModel(Guid modelId)
+    {
+        SelectedModelId = modelId;
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close();
+    }
+}

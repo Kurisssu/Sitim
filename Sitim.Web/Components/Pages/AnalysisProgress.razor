@@ -1,0 +1,226 @@
+@page "/analysis/{JobIdStr}"
+@attribute [Authorize]
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+@using System.Timers
+
+<PageTitle>Progres Analiză — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    @if (isLoading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (job == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false">
+            Jobul de analiză nu a fost găsit.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenColumn>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
+                                  Click="@NavigateToStudy" title="Înapoi la studiu" />
+                    <RadzenText Text="Progres Analiză AI" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                </RadzenStack>
+            </RadzenColumn>
+            <RadzenColumn>
+                <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(job.Status)" Text="@job.Status" />
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenCard>
+            <RadzenStack Gap="1rem">
+                <RadzenText Text="@GetStatusMessage(job.Status)" TextStyle="TextStyle.Body1" />
+                <RadzenProgressBar Value="@GetProgressValue(job.Status)" ShowValue="false" />
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(job.ModelName ?? "—")" TextStyle="TextStyle.Body1" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@FormatDateTime(job.CreatedAt)" TextStyle="TextStyle.Body1" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Pornită la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(job.StartedAt.HasValue ? FormatDateTime(job.StartedAt.Value) : "—")" TextStyle="TextStyle.Body1" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Timp procesare (ms)" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(job.ProcessingTimeMs?.ToString() ?? "—")" TextStyle="TextStyle.Body1" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        @if (job.Status == "Completed" && job.PredictionClass.HasValue)
+        {
+            <RadzenCard>
+                <RadzenStack Gap="1rem">
+                    <RadzenText Text="Analiza este finalizată." TextStyle="TextStyle.Body1" />
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem">
+                        <RadzenText Text="@($"Clasă: {job.PredictionClass}")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="@($"Încredere: {(job.Confidence?.ToString("P2") ?? "—")}")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                    <RadzenButton Text="Vezi Detalii Rezultat" Icon="zoom_in" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+                                  Click="@ShowResultDetails" />
+                </RadzenStack>
+            </RadzenCard>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(job.ErrorMessage))
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Light" AllowClose="false">
+                <RadzenText Text="@($"Eroare: {job.ErrorMessage}")" />
+            </RadzenAlert>
+        }
+
+        @if (job.Status == "Queued" || job.Status == "Running")
+        {
+            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
+                <RadzenColumn Size="12" SizeMD="6" class="rz-text-align-end">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem">
+                        <RadzenCheckBox @bind-Value="autoRefresh" TValue="bool" />
+                        <RadzenText Text="Auto-refresh (5 sec)" TextStyle="TextStyle.Body2" />
+                        <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                      Click="@RefreshStatus" />
+                    </RadzenStack>
+                </RadzenColumn>
+            </RadzenRow>
+        }
+    }
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string JobIdStr { get; set; } = "";
+
+    private Guid JobId;
+    private SitimApiClient.AIAnalysisJobStatusDto? job;
+    private bool isLoading = true;
+    private bool autoRefresh = true;
+    private Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Guid.TryParse(JobIdStr, out var parsedJobId))
+        {
+            JobId = parsedJobId;
+            await LoadJobStatus();
+            StartAutoRefresh();
+        }
+    }
+
+    private async Task LoadJobStatus()
+    {
+        isLoading = true;
+        try
+        {
+            job = await Api.GetAnalysisJobAsync(JobId);
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshStatus()
+    {
+        await LoadJobStatus();
+        StateHasChanged();
+    }
+
+    private void StartAutoRefresh()
+    {
+        refreshTimer = new Timer(5000);
+        refreshTimer.Elapsed += (s, e) =>
+        {
+            if (!autoRefresh || (job?.Status != "Queued" && job?.Status != "Running"))
+                return;
+
+            _ = InvokeAsync(RefreshStatus);
+        };
+        refreshTimer.AutoReset = true;
+        refreshTimer.Start();
+    }
+
+    private void ShowResultDetails()
+    {
+        if (job != null)
+            Navigation.NavigateTo($"/analysis/{JobId}/results");
+    }
+
+    private void NavigateToStudy()
+    {
+        if (!string.IsNullOrWhiteSpace(job?.OrthancStudyId))
+        {
+            Navigation.NavigateTo($"/studies/{job.OrthancStudyId}");
+            return;
+        }
+
+        Navigation.NavigateTo("/studies");
+    }
+
+    private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
+    {
+        "Queued" => BadgeStyle.Warning,
+        "Running" => BadgeStyle.Info,
+        "Completed" => BadgeStyle.Success,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static string GetStatusMessage(string status) => status switch
+    {
+        "Queued" => "Analiza este în coadă și urmează să pornească.",
+        "Running" => "Analiza rulează în acest moment.",
+        "Completed" => "Analiza a fost finalizată cu succes.",
+        "Failed" => "Analiza a eșuat. Verifică mesajul de eroare.",
+        _ => $"Status: {status}"
+    };
+
+    private static double GetProgressValue(string status) => status switch
+    {
+        "Queued" => 20,
+        "Running" => 60,
+        "Completed" => 100,
+        "Failed" => 100,
+        _ => 0
+    };
+
+    private static string FormatDateTime(DateTime dt) => dt.ToString("yyyy-MM-dd HH:mm:ss");
+
+    public async ValueTask DisposeAsync()
+    {
+        refreshTimer?.Dispose();
+    }
+}

@@ -27,55 +27,74 @@
     }
     else
     {
-        <RadzenDataGrid Data="@_users" TItem="SitimApiClient.UserResult"
-                        AllowSorting="true" AllowPaging="true" PageSize="25"
-                        EmptyText="Nu există utilizatori.">
-            <Columns>
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="FullName" Title="Nume" Width="180px">
-                    <Template Context="row">
-                        @(string.IsNullOrWhiteSpace(row.FullName) ? "—" : row.FullName)
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="Email" Title="Email" />
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="Role" Title="Rol" Width="130px">
-                    <Template Context="row">
-                        <RadzenBadge BadgeStyle="@RoleBadge(row.Role)" Text="@row.Role" />
-                    </Template>
-                </RadzenDataGridColumn>
-                @if (TokenStore.IsSuperAdmin)
+        @if (!_users.Any())
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
+                Nu există utilizatori.
+            </RadzenAlert>
+        }
+        else
+        {
+            <RadzenStack Gap="0.5rem">
+                @foreach (var row in _users)
                 {
-                    <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="InstitutionName" Title="Instituție" Width="160px">
-                        <Template Context="row">
-                            @(row.InstitutionName ?? "—")
-                        </Template>
-                    </RadzenDataGridColumn>
+                    <RadzenCard>
+                        <RadzenRow AlignItems="AlignItems.Center">
+                            <RadzenColumn Size="12" SizeMD="10">
+                                <RadzenRow>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Nume" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@(string.IsNullOrWhiteSpace(row.FullName) ? "—" : row.FullName)" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="12" SizeMD="3">
+                                        <RadzenText Text="Email" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.Email" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Rol" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <div>
+                                            <RadzenBadge BadgeStyle="@RoleBadge(row.Role)" Text="@row.Role" />
+                                        </div>
+                                    </RadzenColumn>
+                                    @if (TokenStore.IsSuperAdmin)
+                                    {
+                                        <RadzenColumn Size="6" SizeMD="2">
+                                            <RadzenText Text="Instituție" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@(row.InstitutionName ?? "—")" TextStyle="TextStyle.Body2" />
+                                        </RadzenColumn>
+                                    }
+                                    <RadzenColumn Size="6" SizeMD="1">
+                                        <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <div>
+                                            @if (row.IsActive)
+                                            {
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                                            }
+                                            else
+                                            {
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                                            }
+                                        </div>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Creat" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.CreatedAtUtc.ToString("yyyy-MM-dd")" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
+                                    <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                                  Click="@(() => OpenEditDialog(row))" title="Editează" />
+                                    <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
+                                                  Click="@(() => ConfirmDelete(row))" title="Șterge utilizatorul" />
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
                 }
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Title="Status" Width="110px">
-                    <Template Context="row">
-                        @if (row.IsActive)
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
-                        }
-                        else
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Property="CreatedAtUtc" Title="Creat" Width="120px"
-                                      FormatString="{0:yyyy-MM-dd}" />
-                <RadzenDataGridColumn TItem="SitimApiClient.UserResult" Title="Acțiuni" Width="140px" Sortable="false">
-                    <Template Context="row">
-                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
-                            <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                          Click="@(() => OpenEditDialog(row))" title="Editează" />
-                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
-                                          Click="@(() => ConfirmDelete(row))" title="Șterge utilizatorul" />
-                        </RadzenStack>
-                    </Template>
-                </RadzenDataGridColumn>
-            </Columns>
-        </RadzenDataGrid>
+            </RadzenStack>
+        }
     }
 </RadzenStack>
 

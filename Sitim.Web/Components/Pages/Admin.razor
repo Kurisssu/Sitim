@@ -48,20 +48,6 @@
             <RadzenRow AlignItems="AlignItems.Center">
                 <RadzenColumn Size="12" SizeMD="8">
                     <RadzenStack>
-                        <RadzenText Text="Re-rulare analize neterminate" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
-                        <RadzenText Text="Re-programează toate analizele cu status 'În așteptare' sau 'Eșuat' pentru execuție."
-                                    TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                    </RadzenStack>
-                </RadzenColumn>
-                <RadzenColumn Size="12" SizeMD="4">
-                    <RadzenButton Text="Enqueue Unfinished" Icon="replay" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
-                                  Click="@OnEnqueueUnfinished" IsBusy="@isEnqueuing" BusyText="Se procesează..." />
-                </RadzenColumn>
-            </RadzenRow>
-
-            <RadzenRow AlignItems="AlignItems.Center">
-                <RadzenColumn Size="12" SizeMD="8">
-                    <RadzenStack>
                         <RadzenText Text="Sincronizare completă Orthanc → DB" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
                         <RadzenText Text="Sincronizează toate studiile din Orthanc în baza de date locală."
                                     TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
@@ -92,7 +78,6 @@
 @code {
     private bool? apiHealthy;
     private bool isCheckingHealth;
-    private bool isEnqueuing;
     private bool isSyncing;
 
     private string apiBaseUrl = "https://localhost:7006";
@@ -115,24 +100,6 @@
             apiHealthy.Value ? NotificationSeverity.Success : NotificationSeverity.Error,
             "Health Check",
             apiHealthy.Value ? "API-ul este online." : "API-ul nu răspunde.");
-    }
-
-    private async Task OnEnqueueUnfinished()
-    {
-        isEnqueuing = true;
-        try
-        {
-            var count = await Api.EnqueueUnfinishedAsync();
-            Notification.Notify(NotificationSeverity.Success, "Enqueue", $"{count} analize re-programate.");
-        }
-        catch (Exception ex)
-        {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
-        }
-        finally
-        {
-            isEnqueuing = false;
-        }
     }
 
     private async Task OnSyncAll()

@@ -48,6 +48,19 @@ namespace Sitim.Api.Controllers
             _db = db;
         }
 
+        /// <summary>
+        /// Get Institution's Orthanc URL from database.
+        /// </summary>
+        private async Task<string?> GetInstitutionOrthancUrlAsync(Guid institutionId, CancellationToken ct)
+        {
+            var inst = await _db.Institutions
+                .AsNoTracking()
+                .Where(i => i.Id == institutionId)
+                .Select(i => i.OrthancBaseUrl)
+                .FirstOrDefaultAsync(ct);
+            return inst;
+        }
+
         [HttpGet]
         public Task<IActionResult> ProxyRoot(CancellationToken ct)
             => ProxyGet("studies", ct);
@@ -92,7 +105,9 @@ namespace Sitim.Api.Controllers
             }
 
             var query = BuildForwardQuery(normalizedPath, payload.StudyInstanceUid);
-            var target = BuildOrthancDicomWebUrl(normalizedPath, query);
+            var target = await BuildOrthancDicomWebUrlAsync(normalizedPath, query, payload, ct);
+            if (target is null)
+                return Problem(statusCode: 500, title: "Institution Orthanc URL not configured.");
 
             using var outgoing = new HttpRequestMessage(HttpMethod.Get, target);
             CopyRequestHeaders(outgoing);
@@ -109,11 +124,30 @@ namespace Sitim.Api.Controllers
             return new EmptyResult();
         }
 
-        private string BuildOrthancDicomWebUrl(string path, QueryString query)
+        private async Task<string?> BuildOrthancDicomWebUrlAsync(string path, QueryString query, ViewerTokenPayload payload, CancellationToken ct)
         {
-            var baseUrl = _orthancOptions.BaseUrl.TrimEnd('/');
+            string? baseUrl;
+
+            // For both SuperAdmin and regular users: if token has InstitutionId, use that institution's Orthanc
+            if (payload.InstitutionId.HasValue)
+            {
+                baseUrl = await GetInstitutionOrthancUrlAsync(payload.InstitutionId.Value, ct);
+            }
+            else if (payload.IsSuperAdmin)
+            {
+                // SuperAdmin without InstitutionId: fallback to shared Orthanc (backward compatibility, shouldn't happen in multi-Orthanc)
+                baseUrl = _orthancOptions.BaseUrl;
+            }
+            else
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(baseUrl))
+                return null;
+
             var root = _orthancOptions.DicomWebRoot.Trim('/');
-            return $"{baseUrl}/{root}/{path}{query.Value}";
+            return $"{baseUrl.TrimEnd('/')}/{root}/{path}{query.Value}";
         }
 
         private QueryString BuildForwardQuery(string normalizedPath, string studyInstanceUid)

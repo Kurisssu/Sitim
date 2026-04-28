@@ -1,7 +1,5 @@
-﻿using Sitim.Core.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Sitim.Core.Entities;
+using Sitim.Core.Models;
 
 namespace Sitim.Core.Services
 {
@@ -21,6 +19,10 @@ namespace Sitim.Core.Services
         /// Reads a single study from our local DB (does NOT contact Orthanc).
         /// </summary>
         Task<StudyDetails?> GetLocalAsync(string orthancStudyId, CancellationToken ct);
+        /// <summary>
+        /// Gets the study entity (with InstitutionId) from DB.
+        /// </summary>
+        Task<ImagingStudy?> GetStudyEntityAsync(string orthancStudyId, CancellationToken ct);
         /// <summary>
         /// Fetches details from Orthanc and upserts them into DB, then returns the DB view.
         /// </summary>

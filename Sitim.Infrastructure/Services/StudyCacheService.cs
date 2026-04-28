@@ -15,18 +15,18 @@ namespace Sitim.Infrastructure.Services
     public sealed class StudyCacheService : IStudyCacheService
     {
         private readonly AppDbContext _db;
-        private readonly IOrthancClient _orthanc;
+        private readonly IOrthancClientFactory _orthancFactory;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ITenantContext _tenantContext;
 
         public StudyCacheService(
             AppDbContext db,
-            IOrthancClient orthanc,
+            IOrthancClientFactory orthancFactory,
             IServiceScopeFactory scopeFactory,
             ITenantContext tenantContext)
         {
             _db = db;
-            _orthanc = orthanc;
+            _orthancFactory = orthancFactory;
             _scopeFactory = scopeFactory;
             _tenantContext = tenantContext;
         }
@@ -54,9 +54,25 @@ namespace Sitim.Infrastructure.Services
             return s is null ? null : ToDetails(s);
         }
 
+        public async Task<ImagingStudy?> GetStudyEntityAsync(string orthancStudyId, CancellationToken ct)
+        {
+            // For SuperAdmin: need to bypass query filters to access any institution's study
+            var query = _tenantContext.IsSuperAdmin 
+                ? _db.ImagingStudies.IgnoreQueryFilters() 
+                : _db.ImagingStudies;
+
+            return await query
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.OrthancStudyId == orthancStudyId, ct);
+        }
+
         public async Task<StudyDetails?> SyncFromOrthancAsync(string orthancStudyId, CancellationToken ct)
         {
-            var d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return null;
+
+            var d = await orthanc.GetStudyAsync(orthancStudyId, ct);
 
             // If study is missing in Orthanc (null), ensure it is removed from local DB
             if (d is null)
@@ -168,23 +184,23 @@ namespace Sitim.Infrastructure.Services
 
         public async Task<int> SyncAllFromOrthancAsync(CancellationToken ct)
         {
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return 0;
+
             IReadOnlyList<string> remoteIds;
 
             if (!_tenantContext.IsSuperAdmin && _tenantContext.InstitutionId.HasValue)
             {
-                // Fetch only the studies that carry this institution's Orthanc label.
-                var institution = await _db.Institutions
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(i => i.Id == _tenantContext.InstitutionId.Value, ct);
-
-                if (institution is null) return 0;
-
-                remoteIds = await _orthanc.GetStudyIdsByLabelAsync(institution.OrthancLabel, ct);
+                // In multi-Orthanc architecture, each institution has its own Orthanc instance.
+                // No filtering needed - all studies in this Orthanc belong to this institution.
+                remoteIds = await orthanc.GetStudyIdsAsync(ct);
             }
             else
             {
-                // SuperAdmin: sync every study in Orthanc across all institutions.
-                remoteIds = await _orthanc.GetStudyIdsAsync(ct);
+                // SuperAdmin: sync every study in Orthanc (legacy single-Orthanc mode).
+                // NOTE: In multi-Orthanc, SuperAdmin may need to iterate through all institutions.
+                remoteIds = await orthanc.GetStudyIdsAsync(ct);
             }
 
             // localIds is already scoped by the Global Query Filter (tenant or all for SuperAdmin).
@@ -241,13 +257,18 @@ namespace Sitim.Infrastructure.Services
             PatientName: s.Patient?.PatientName,
             StudyDate: s.StudyDate,
             ModalitiesInStudy: s.ModalitiesInStudy,
-            SeriesOrthancIds: s.Series.Select(x => x.OrthancSeriesId).ToList()
+            SeriesOrthancIds: s.Series.Select(x => x.OrthancSeriesId).ToList(),
+            DbStudyId: s.Id  // Include DB ID
         );
 
         public async Task<bool> DeleteStudyAsync(string orthancStudyId, CancellationToken ct)
         {
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return false;
+
             // 1. Delete from Orthanc first — if this fails, we stop (DB stays consistent).
-            var deleted = await _orthanc.DeleteStudyAsync(orthancStudyId, ct);
+            var deleted = await orthanc.DeleteStudyAsync(orthancStudyId, ct);
             if (!deleted)
                 return false;
 

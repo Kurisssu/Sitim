@@ -24,34 +24,61 @@
     }
     else
     {
-        <RadzenDataGrid Data="@_institutions" TItem="SitimApiClient.InstitutionResult"
-                        AllowSorting="true" AllowPaging="true" PageSize="20"
-                        EmptyText="Nu există instituții înregistrate.">
-            <Columns>
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="Name" Title="Denumire" />
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="Slug" Title="Slug" />
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="OrthancLabel" Title="Label Orthanc" />
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Title="Status" Width="120px">
-                    <Template Context="row">
-                        @if (row.IsActive)
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
-                        }
-                        else
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Property="CreatedAtUtc" Title="Creat la" FormatString="{0:yyyy-MM-dd}" />
-                <RadzenDataGridColumn TItem="SitimApiClient.InstitutionResult" Title="Acțiuni" Width="150px" Sortable="false">
-                    <Template Context="row">
-                        <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                      Click="@(() => OpenEditDialog(row))" />
-                    </Template>
-                </RadzenDataGridColumn>
-            </Columns>
-        </RadzenDataGrid>
+        @if (!_institutions.Any())
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
+                Nu există instituții înregistrate.
+            </RadzenAlert>
+        }
+        else
+        {
+            <RadzenStack Gap="0.5rem">
+                @foreach (var row in _institutions)
+                {
+                    <RadzenCard>
+                        <RadzenRow AlignItems="AlignItems.Center">
+                            <RadzenColumn Size="12" SizeMD="10">
+                                <RadzenRow>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Denumire" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.Name" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Slug" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.Slug" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="12" SizeMD="4">
+                                        <RadzenText Text="URL Orthanc" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.OrthancBaseUrl" TextStyle="TextStyle.Caption" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <div>
+                                            @if (row.IsActive)
+                                            {
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                                            }
+                                            else
+                                            {
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                                            }
+                                        </div>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Creat la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@row.CreatedAtUtc.ToString("yyyy-MM-dd")" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                              Click="@(() => OpenEditDialog(row))" />
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                }
+            </RadzenStack>
+        }
     }
 </RadzenStack>
 
@@ -72,10 +99,15 @@
                         <RadzenTextBox @bind-Value="_newSlug" Placeholder="ex: scj-cluj" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
-                <RadzenFormField Text="Label Orthanc *" Style="width:100%">
+                <RadzenFormField Text="URL Orthanc *" Style="width:100%">
                     <ChildContent>
-                        <RadzenTextBox @bind-Value="_newOrthancLabel" Placeholder="ex: scj-cluj" Style="width:100%" />
+                        <RadzenTextBox @bind-Value="_newOrthancBaseUrl" Placeholder="ex: http://orthanc-scj-cluj:8042" Style="width:100%" />
                     </ChildContent>
+                    <Helper>
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                            Adresa serverului Orthanc dedicat acestei instituții (hostname Docker sau URL extern)
+                        </RadzenText>
+                    </Helper>
                 </RadzenFormField>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
                     <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
@@ -97,6 +129,11 @@
                 <RadzenFormField Text="Denumire *" Style="width:100%">
                     <ChildContent>
                         <RadzenTextBox @bind-Value="_editName" Style="width:100%" />
+                    </ChildContent>
+                </RadzenFormField>
+                <RadzenFormField Text="URL Orthanc *" Style="width:100%">
+                    <ChildContent>
+                        <RadzenTextBox @bind-Value="_editOrthancBaseUrl" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
@@ -122,12 +159,13 @@
     private bool _showCreateDialog = false;
     private string _newName = "";
     private string _newSlug = "";
-    private string _newOrthancLabel = "";
+    private string _newOrthancBaseUrl = "";
 
     // Edit dialog state
     private bool _showEditDialog = false;
     private SitimApiClient.InstitutionResult? _editTarget = null;
     private string _editName = "";
+    private string _editOrthancBaseUrl = "";
     private bool _editIsActive = true;
 
     protected override async Task OnInitializedAsync()
@@ -144,7 +182,7 @@
 
     private void OpenCreateDialog()
     {
-        _newName = _newSlug = _newOrthancLabel = "";
+        _newName = _newSlug = _newOrthancBaseUrl = "";
         _showCreateDialog = true;
         _showEditDialog = false;
     }
@@ -153,6 +191,7 @@
     {
         _editTarget = inst;
         _editName = inst.Name;
+        _editOrthancBaseUrl = inst.OrthancBaseUrl;
         _editIsActive = inst.IsActive;
         _showEditDialog = true;
         _showCreateDialog = false;
@@ -166,14 +205,15 @@
 
     private async Task CreateInstitution()
     {
-        if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newSlug) || string.IsNullOrWhiteSpace(_newOrthancLabel))
+        if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newSlug) || 
+            string.IsNullOrWhiteSpace(_newOrthancBaseUrl))
         {
             NotificationService.Notify(NotificationSeverity.Warning, "Completați toate câmpurile obligatorii.");
             return;
         }
 
         _saving = true;
-        var result = await Api.CreateInstitutionAsync(_newName, _newSlug, _newOrthancLabel);
+        var result = await Api.CreateInstitutionAsync(_newName, _newSlug, _newOrthancBaseUrl);
         _saving = false;
 
         if (result is not null)
@@ -184,16 +224,17 @@
         }
         else
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la crearea instituției. Verificați că slug-ul și label-ul sunt unice.");
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare la crearea instituției. Verificați că slug-ul este unic.");
         }
     }
 
     private async Task UpdateInstitution()
     {
-        if (_editTarget is null || string.IsNullOrWhiteSpace(_editName)) return;
+        if (_editTarget is null || string.IsNullOrWhiteSpace(_editName) || string.IsNullOrWhiteSpace(_editOrthancBaseUrl)) 
+            return;
 
         _saving = true;
-        var result = await Api.UpdateInstitutionAsync(_editTarget.Id, _editName, _editIsActive);
+        var result = await Api.UpdateInstitutionAsync(_editTarget.Id, _editName, _editOrthancBaseUrl, _editIsActive);
         _saving = false;
 
         if (result is not null)

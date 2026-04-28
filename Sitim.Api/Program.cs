@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Minio;
+using Sitim.Api.HangfireJobs;
 using Sitim.Api.Options;
 using Sitim.Api.Security;
 using Sitim.Api.Services;
@@ -83,6 +85,7 @@ builder.Services.AddSwaggerGen(c =>
 // Options
 builder.Services.Configure<OrthancOptions>(builder.Configuration.GetSection("Orthanc"));
 builder.Services.Configure<OhifOptions>(builder.Configuration.GetSection("Ohif"));
+builder.Services.Configure<FederatedLearningOptions>(builder.Configuration.GetSection(FederatedLearningOptions.SectionName));
 
 // Auth (JWT)
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
@@ -116,6 +119,12 @@ builder.Services.AddIdentityCore<ApplicationUser>(opt =>
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IViewerTokenService, ViewerTokenService>();
+builder.Services.AddHttpClient(FederatedLearningOptions.ControlPlaneHttpClientName, (sp, client) =>
+{
+    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FederatedLearningOptions>>().Value;
+    client.BaseAddress = new Uri(options.ControlPlaneBaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(5, options.HttpTimeoutSeconds));
+});
 
 var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.SigningKey) || jwt.SigningKey.Length < 32)
@@ -160,22 +169,85 @@ builder.Services.AddHangfire(cfg =>
 
 builder.Services.AddHangfireServer();
 
-// Background scheduling / analysis runner
-builder.Services.AddScoped<IAnalysisService, AnalysisService>();
-builder.Services.AddScoped<IAnalysisJobScheduler, AnalysisJobScheduler>();
+// AI Analysis Job Scheduler
+builder.Services.AddScoped<AIAnalysisJobScheduler>();
+builder.Services.AddScoped<FLSessionMonitorHangfireJob>();
 
-// Orthanc REST client
+// MinIO client for AI model storage
+// MinIO Client (for AI model storage)
+builder.Services.AddSingleton<Minio.IMinioClient>(sp =>
+{
+    var config = builder.Configuration;
+    var endpoint = config["MinIO:Endpoint"] ?? throw new InvalidOperationException("MinIO:Endpoint not configured");
+    var accessKey = config["MinIO:AccessKey"] ?? throw new InvalidOperationException("MinIO:AccessKey not configured");
+    var secretKey = config["MinIO:SecretKey"] ?? throw new InvalidOperationException("MinIO:SecretKey not configured");
+    var useSSL = config.GetValue<bool>("MinIO:UseSSL", false);
+
+    // MinIO SDK 6.x/7.x fluent API
+    var client = new Minio.MinioClient()
+        .WithEndpoint(endpoint)
+        .WithCredentials(accessKey, secretKey);
+    
+    if (useSSL)
+    {
+        client = client.WithSSL();
+    }
+    
+    return client.Build();
+});
+
+// AI Services
+builder.Services.AddScoped<Sitim.Core.Services.IModelStorageService, Sitim.Infrastructure.Storage.MinIOModelStorageService>();
+builder.Services.AddScoped<IInferenceEngine, OnnxInferenceEngine>();
+builder.Services.AddScoped<IAIInferenceService, AIInferenceService>();
+builder.Services.AddScoped<IAIModelSelectorService, AIModelSelectorService>();
+builder.Services.AddScoped<IFLOrchestrationService, FLOrchestrationService>();
+
+// Orthanc client factory (multi-Orthanc architecture)
+// Each institution has its own Orthanc instance, factory creates clients per institution
+builder.Services.AddScoped<IOrthancClientFactory, OrthancClientFactory>();
+
+// Legacy: Single OrthancClient (kept for backward compatibility, uses OrthancOptions.BaseUrl)
+// TODO: Remove this after migrating all consumers to use IOrthancClientFactory
 builder.Services.AddHttpClient<IOrthancClient, OrthancClient>((sp, client) =>
 {
     var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OrthancOptions>>().Value;
     client.BaseAddress = new Uri(opt.BaseUrl.TrimEnd('/') + "/");
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromSeconds(300); // 5 minutes for large archives
 });
 
 // Local cache (PostgreSQL) for Orthanc studies
 builder.Services.AddScoped<IStudyCacheService, StudyCacheService>();
 
 var app = builder.Build();
+
+{
+    using var scope = app.Services.CreateScope();
+    var options = scope.ServiceProvider
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<FederatedLearningOptions>>()
+        .Value;
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("FLStartup");
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    var intervalMinutes = Math.Clamp(options.MonitorIntervalMinutes, 1, 59);
+    var cronExpression = intervalMinutes == 1 ? Cron.Minutely() : $"*/{intervalMinutes} * * * *";
+    recurringJobs.AddOrUpdate<FLSessionMonitorHangfireJob>(
+        recurringJobId: "fl-session-monitor",
+        methodCall: job => job.RunAsync(),
+        cronExpression: cronExpression);
+
+    try
+    {
+        var flOrchestrationService = scope.ServiceProvider.GetRequiredService<IFLOrchestrationService>();
+        var refreshedCount = await flOrchestrationService.RefreshRunningSessionsAsync(CancellationToken.None);
+        logger.LogInformation("FL startup reconciliation refreshed {SessionCount} active session(s).", refreshedCount);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "FL startup reconciliation failed.");
+    }
+}
 
 // Seed roles + dev admin user (idempotent)
 await IdentitySeeder.SeedAsync(app.Services, app.Configuration, CancellationToken.None);

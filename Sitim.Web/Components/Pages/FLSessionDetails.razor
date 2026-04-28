@@ -1,0 +1,330 @@
+@page "/federated-learning/sessions/{SessionIdStr}"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@implements IAsyncDisposable
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+
+<PageTitle>Detalii sesiune FL — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
+                              title="Înapoi la dashboard"
+                              Click="@(() => Navigation.NavigateTo("/federated-learning"))" />
+                <RadzenText Text="Detalii sesiune FL" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+            </RadzenStack>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                <RadzenCheckBox @bind-Value="_autoRefresh" TValue="bool" />
+                <RadzenText Text="Auto-refresh (5 sec)" TextStyle="TextStyle.Body2" />
+                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                              Click="@LoadSessionAsync" IsBusy="@_loading" />
+            </RadzenStack>
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (_loading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (_session is null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" AllowClose="false">
+            Sesiunea FL nu a fost găsită.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenCard>
+                    <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@_session.ModelKey" TextStyle="TextStyle.Body1" />
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenCard>
+                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <div>
+                        <RadzenBadge BadgeStyle="@GetSessionBadgeStyle(_session.Status)" Text="@_session.Status" />
+                    </div>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenCard>
+                    <RadzenText Text="Runda curentă" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@($"{_session.CurrentRound}/{_session.TotalRounds}")" TextStyle="TextStyle.Body1" />
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenCard>
+                    <RadzenText Text="Participanți" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@_session.Participants.Count.ToString()" TextStyle="TextStyle.Body1" />
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        <RadzenRow Gap="1rem">
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Pornită la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(_session.StartedAtUtc.HasValue ? FormatDateTime(_session.StartedAtUtc.Value) : "—")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="Finalizată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(_session.FinishedAtUtc.HasValue ? FormatDateTime(_session.FinishedAtUtc.Value) : "—")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard>
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenText Text="Model output" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(_session.OutputModelPath ?? "—")" TextStyle="TextStyle.Body2" />
+                        <RadzenText Text="Ultima eroare" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@(_session.LastError ?? "—")" TextStyle="TextStyle.Body2" />
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+        @if (_session.Status == "Completed")
+        {
+            <RadzenCard>
+                <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                    <RadzenColumn Size="12" SizeMD="8">
+                        <RadzenStack Gap="0.25rem">
+                            <RadzenText Text="Model publicat în registry" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@(_publishedModel is null ? "Modelul nu este încă publicat în registry." : $"{_publishedModel.Name} (v{_publishedModel.Version})")" TextStyle="TextStyle.Body2" />
+                            @if (_publishedModel is not null)
+                            {
+                                <RadzenText Text="@($"Storage: {_publishedModel.StorageFileName}")" TextStyle="TextStyle.Caption" />
+                            }
+                        </RadzenStack>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
+                        <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                            @if (_publishedModel is not null && _publishedModel.IsActive)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Model activ în inferență" />
+                            }
+                            else if (_publishedModel is not null)
+                            {
+                                <RadzenButton Text="Activează modelul FL"
+                                              Icon="published_with_changes"
+                                              ButtonStyle="ButtonStyle.Primary"
+                                              Size="ButtonSize.Small"
+                                              IsBusy="@_activatingModel"
+                                              Click="@ActivatePublishedModelAsync" />
+                            }
+                        </RadzenStack>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenCard>
+        }
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Participanți" TextStyle="TextStyle.H6" />
+                @if (!_session.Participants.Any())
+                {
+                    <RadzenText Text="Nu există participanți înregistrați." TextStyle="TextStyle.Body2" />
+                }
+                else
+                {
+                    <RadzenStack Gap="0.5rem">
+                        @foreach (var participant in _session.Participants.OrderBy(p => p.InstitutionName))
+                        {
+                            <RadzenCard Variant="Variant.Outlined">
+                                <RadzenRow AlignItems="AlignItems.Center">
+                                    <RadzenColumn Size="12" SizeMD="5">
+                                        <RadzenText Text="@participant.InstitutionName" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="3">
+                                        <RadzenBadge BadgeStyle="@GetParticipantBadgeStyle(participant.Status)" Text="@participant.Status" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="4" class="rz-text-align-end">
+                                        <RadzenText Text="@(participant.LastHeartbeatUtc.HasValue ? FormatDateTime(participant.LastHeartbeatUtc.Value) : "—")" TextStyle="TextStyle.Caption" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenCard>
+                        }
+                    </RadzenStack>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Evoluție metrici (loss/accuracy)" TextStyle="TextStyle.H6" />
+                @if (!_session.Rounds.Any())
+                {
+                    <RadzenText Text="Nu există încă runde finalizate." TextStyle="TextStyle.Body2" />
+                }
+                else
+                {
+                    <RadzenChart>
+                        <RadzenLineSeries Data="@_session.Rounds.OrderBy(r => r.RoundNumber).ToList()"
+                                          CategoryProperty="RoundNumber"
+                                          ValueProperty="AggregatedLoss"
+                                          Title="Loss" />
+                        <RadzenLineSeries Data="@_session.Rounds.OrderBy(r => r.RoundNumber).ToList()"
+                                          CategoryProperty="RoundNumber"
+                                          ValueProperty="AggregatedAccuracy"
+                                          Title="Accuracy" />
+                        <RadzenCategoryAxis Title="Runda" />
+                        <RadzenValueAxis Title="Valoare metrică" />
+                    </RadzenChart>
+
+                    <div style="overflow:auto;">
+                        <table class="rz-datatable-tablewrapper" style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="text-align:left;border-bottom:1px solid var(--rz-base-300);">
+                                    <th style="padding:0.5rem;">Runda</th>
+                                    <th style="padding:0.5rem;">Loss agregat</th>
+                                    <th style="padding:0.5rem;">Accuracy agregat</th>
+                                    <th style="padding:0.5rem;">Finalizată la</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var round in _session.Rounds.OrderBy(r => r.RoundNumber))
+                                {
+                                    <tr style="border-bottom:1px solid var(--rz-base-200);">
+                                        <td style="padding:0.5rem;">@round.RoundNumber</td>
+                                        <td style="padding:0.5rem;">@(round.AggregatedLoss?.ToString("0.000000") ?? "—")</td>
+                                        <td style="padding:0.5rem;">@(round.AggregatedAccuracy?.ToString("0.0000") ?? "—")</td>
+                                        <td style="padding:0.5rem;">@(round.CompletedAtUtc.HasValue ? FormatDateTime(round.CompletedAtUtc.Value) : "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </RadzenStack>
+        </RadzenCard>
+    }
+</RadzenStack>
+
+@code {
+    [Parameter]
+    public string SessionIdStr { get; set; } = string.Empty;
+
+    private Guid _sessionId;
+    private SitimApiClient.FLSessionDetailsDto? _session;
+    private SitimApiClient.FLPublishedModelDto? _publishedModel;
+    private bool _loading = true;
+    private bool _activatingModel;
+    private bool _autoRefresh = true;
+    private System.Timers.Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Guid.TryParse(SessionIdStr, out _sessionId))
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadSessionAsync();
+        StartAutoRefresh();
+    }
+
+    private async Task LoadSessionAsync()
+    {
+        _loading = true;
+        try
+        {
+            var sessionTask = Api.GetFLSessionAsync(_sessionId);
+            var publishedModelTask = Api.GetFLPublishedModelAsync(_sessionId);
+            await Task.WhenAll(sessionTask, publishedModelTask);
+
+            _session = sessionTask.Result;
+            _publishedModel = publishedModelTask.Result;
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        _refreshTimer = new System.Timers.Timer(5000);
+        _refreshTimer.Elapsed += (_, _) =>
+        {
+            if (!_autoRefresh || _session is null || !IsSessionRunning(_session.Status))
+                return;
+
+            _ = InvokeAsync(LoadSessionAsync);
+        };
+        _refreshTimer.AutoReset = true;
+        _refreshTimer.Start();
+    }
+
+    private async Task ActivatePublishedModelAsync()
+    {
+        if (_session is null || _session.Status != "Completed")
+            return;
+
+        _activatingModel = true;
+        try
+        {
+            var activated = await Api.ActivateFLPublishedModelAsync(_sessionId);
+            if (activated is null)
+            {
+                Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut activa modelul FL.");
+                return;
+            }
+
+            _publishedModel = activated;
+            Notification.Notify(NotificationSeverity.Success, "Succes", "Modelul FL a fost activat pentru inferență.");
+            await LoadSessionAsync();
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            _activatingModel = false;
+        }
+    }
+
+    private static bool IsSessionRunning(string status) =>
+        status is "Running" or "Pending";
+
+    private static BadgeStyle GetSessionBadgeStyle(string status) => status switch
+    {
+        "Pending" => BadgeStyle.Warning,
+        "Running" => BadgeStyle.Info,
+        "Completed" => BadgeStyle.Success,
+        "Stopped" => BadgeStyle.Danger,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static BadgeStyle GetParticipantBadgeStyle(string status) => status switch
+    {
+        "Invited" => BadgeStyle.Warning,
+        "Accepted" => BadgeStyle.Info,
+        "Training" => BadgeStyle.Info,
+        "Completed" => BadgeStyle.Success,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static string FormatDateTime(DateTime value) => value.ToString("yyyy-MM-dd HH:mm:ss");
+
+    public ValueTask DisposeAsync()
+    {
+        _refreshTimer?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

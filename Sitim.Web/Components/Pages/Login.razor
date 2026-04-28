@@ -4,6 +4,7 @@
 @inject SitimAuthStateProvider AuthProvider
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@using Microsoft.AspNetCore.Components
 
 <PageTitle>SITIM — Autentificare</PageTitle>
 
@@ -51,6 +52,9 @@
 }
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
     private LoginModel loginModel = new();
     private string? errorMessage;
     private bool isLoading;
@@ -73,7 +77,7 @@
     {
         if (firstRender && _alreadyAuthenticated)
         {
-            Navigation.NavigateTo("/", replace: true);
+            Navigation.NavigateTo(GetSafeReturnUrl(), replace: true);
         }
     }
 
@@ -91,7 +95,7 @@
             }
             else
             {
-                Navigation.NavigateTo("/", forceLoad: true);
+                Navigation.NavigateTo(GetSafeReturnUrl(), forceLoad: true);
             }
         }
         catch (Exception ex)
@@ -102,5 +106,21 @@
         {
             isLoading = false;
         }
+    }
+
+    private string GetSafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl))
+            return "/";
+
+        var decoded = Uri.UnescapeDataString(ReturnUrl);
+        if (!decoded.StartsWith("/", StringComparison.Ordinal))
+            return "/";
+        if (decoded.StartsWith("//", StringComparison.Ordinal))
+            return "/";
+        if (decoded.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            return "/";
+
+        return decoded;
     }
 }

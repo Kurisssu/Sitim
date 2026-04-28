@@ -29,46 +29,64 @@
     }
     else
     {
-        <RadzenDataGrid Data="@studies" TItem="StudySummary" AllowFiltering="true" AllowSorting="true"
-                        AllowPaging="true" PageSize="15" PagerHorizontalAlign="HorizontalAlign.Center"
-                        FilterMode="FilterMode.Simple" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-                        RowClick="@OnRowClick" Style="cursor: pointer;"
-                        EmptyText="Nu există studii. Apasă 'Sincronizare Orthanc' sau importă studii noi.">
-            <Columns>
-                <RadzenDataGridColumn TItem="StudySummary" Property="PatientName" Title="Pacient" Width="200px" />
-                <RadzenDataGridColumn TItem="StudySummary" Property="PatientId" Title="ID Pacient" Width="140px" />
-                <RadzenDataGridColumn TItem="StudySummary" Property="StudyDate" Title="Data studiu" Width="130px">
-                    <Template Context="study">
-                        @FormatStudyDate(study.StudyDate)
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="StudySummary" Title="Modalități" Width="120px" Sortable="false" Filterable="false">
-                    <Template Context="study">
-                        @foreach (var mod in study.ModalitiesInStudy)
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@mod" class="rz-mr-1" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="StudySummary" Property="OrthancStudyId" Title="Orthanc ID" Width="180px">
-                    <Template Context="study">
-                        <RadzenText Text="@Truncate(study.OrthancStudyId, 16)" TextStyle="TextStyle.Caption" style="font-family: monospace;" />
-                    </Template>
-                </RadzenDataGridColumn>
-                <RadzenDataGridColumn TItem="StudySummary" Title="Acțiuni" Width="@(IsAdminOrAbove ? "160px" : "100px")" Sortable="false" Filterable="false" TextAlign="TextAlign.Center">
-                    <Template Context="study">
-                        <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
-                                      Click="@(args => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
-                        @if (IsAdminOrAbove)
-                        {
-                            <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small"
-                                          Click="@(args => ConfirmDelete(study))" title="Șterge studiu"
-                                          style="margin-left:4px;" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-            </Columns>
-        </RadzenDataGrid>
+        @if (!studies.Any())
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
+                Nu există studii. Apasă „Sincronizare Orthanc” sau importă studii noi.
+            </RadzenAlert>
+        }
+        else
+        {
+            <RadzenStack Gap="0.5rem">
+                @foreach (var study in studies)
+                {
+                    <RadzenCard>
+                        <RadzenRow AlignItems="AlignItems.Center">
+                            <RadzenColumn Size="12" SizeMD="10">
+                                <RadzenRow>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@(study.PatientName ?? "—")" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="ID Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@(study.PatientId ?? "—")" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="2">
+                                        <RadzenText Text="Data studiu" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@FormatStudyDate(study.StudyDate)" TextStyle="TextStyle.Body2" />
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="6" SizeMD="3">
+                                        <RadzenText Text="Modalități" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <div>
+                                            @foreach (var mod in study.ModalitiesInStudy)
+                                            {
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@mod" class="rz-mr-1" />
+                                            }
+                                        </div>
+                                    </RadzenColumn>
+                                    <RadzenColumn Size="12" SizeMD="3">
+                                        <RadzenText Text="Orthanc ID" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@Truncate(study.OrthancStudyId, 28)" TextStyle="TextStyle.Caption" style="font-family: monospace;" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenColumn>
+                            <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
+                                    <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
+                                                  Click="@(() => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
+                                    @if (IsAdminOrAbove)
+                                    {
+                                        <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small"
+                                                      Click="@(() => ConfirmDelete(study))" title="Șterge studiu" />
+                                    }
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                }
+            </RadzenStack>
+        }
     }
 </RadzenStack>
 

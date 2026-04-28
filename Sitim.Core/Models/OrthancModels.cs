@@ -29,7 +29,8 @@ namespace Sitim.Core.Models
         string? PatientName,
         string? StudyDate,
         IReadOnlyList<string> ModalitiesInStudy,
-        IReadOnlyList<string> SeriesOrthancIds
+        IReadOnlyList<string> SeriesOrthancIds,
+        Guid? DbStudyId = null  // Optional - only set when queried from DB
     );
     /// <summary>
     /// Result returned by Orthanc after POST /instances (upload one DICOM instance).

@@ -15,20 +15,20 @@ namespace Sitim.Api.Controllers
     [Route("api/studies")]
     public sealed class StudiesController : ControllerBase
     {
-        private readonly IOrthancClient _orthanc;
+        private readonly IOrthancClientFactory _orthancFactory;
         private readonly OhifOptions _ohif;
         private readonly IStudyCacheService _cache;
         private readonly IViewerTokenService _viewerTokenService;
         private readonly ITenantContext _tenantContext;
 
         public StudiesController(
-            IOrthancClient orthanc,
+            IOrthancClientFactory orthancFactory,
             IOptions<OhifOptions> ohif,
             IStudyCacheService cache,
             IViewerTokenService viewerTokenService,
             ITenantContext tenantContext)
         {
-            _orthanc = orthanc;
+            _orthancFactory = orthancFactory;
             _ohif = ohif.Value;
             _cache = cache;
             _viewerTokenService = viewerTokenService;
@@ -42,10 +42,14 @@ namespace Sitim.Api.Controllers
         [HttpGet]
         public async Task<ActionResult<IReadOnlyList<StudySummary>>> GetStudies(CancellationToken ct)
         {
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+
             IReadOnlyList<string> ids;
             try
             {
-                ids = await _orthanc.GetStudyIdsAsync(ct);
+                ids = await orthanc.GetStudyIdsAsync(ct);
             }
             catch (HttpRequestException)
             {
@@ -61,7 +65,7 @@ namespace Sitim.Api.Controllers
                 await gate.WaitAsync(ct);
                 try
                 {
-                    var d = await _orthanc.GetStudyAsync(id, ct);
+                    var d = await orthanc.GetStudyAsync(id, ct);
                     if (d is null) return null;
 
                     return new StudySummary(
@@ -94,10 +98,14 @@ namespace Sitim.Api.Controllers
         [HttpGet("{orthancStudyId}")]
         public async Task<ActionResult<StudyDetails>> GetStudy(string orthancStudyId, CancellationToken ct)
         {
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+
             OrthancStudyDetails? d;
             try
             {
-                d = await _orthanc.GetStudyAsync(orthancStudyId, ct);
+                d = await orthanc.GetStudyAsync(orthancStudyId, ct);
             }
             catch (HttpRequestException)
             {
@@ -147,9 +155,20 @@ namespace Sitim.Api.Controllers
             if (!Guid.TryParse(userIdClaim, out var userId))
                 return Unauthorized();
 
+            // For SuperAdmin: use the study's InstitutionId (from cache which returns ImagingStudy entity)
+            // For regular users: use tenant context InstitutionId
+            // Get InstitutionId from the actual study record (GetLocalAsync returns StudyDetails, need DB entity)
+            var studyEntity = await _cache.GetStudyEntityAsync(orthancStudyId, ct);
+            if (studyEntity is null)
+                return NotFound("Study not found.");
+
+            var tokenInstitutionId = _tenantContext.IsSuperAdmin 
+                ? studyEntity.InstitutionId 
+                : _tenantContext.InstitutionId;
+
             var (viewerToken, _) = _viewerTokenService.CreateViewerToken(
                 userId: userId,
-                institutionId: _tenantContext.InstitutionId,
+                institutionId: tokenInstitutionId,
                 studyInstanceUid: studyUid,
                 isSuperAdmin: _tenantContext.IsSuperAdmin);
 

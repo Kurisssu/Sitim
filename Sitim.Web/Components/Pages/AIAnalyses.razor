@@ -1,0 +1,143 @@
+@page "/ai-analyses"
+@attribute [Authorize]
+@inject SitimApiClient Api
+@inject NavigationManager Navigation
+@inject NotificationService Notification
+
+<PageTitle>Analize AI — SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenText Text="Analize AI" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+            <RadzenText Text="Analize în curs și analize finalizate" TextStyle="TextStyle.Body2" style="color: var(--rz-text-secondary-color);" />
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
+            <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                          Click="@LoadJobs" IsBusy="@isLoading" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (isLoading)
+    {
+        <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (!jobs.Any())
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
+            Nu există analize AI pentru instituția curentă.
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenStack Gap="0.5rem">
+            @foreach (var item in jobs)
+            {
+                <RadzenCard>
+                    <RadzenRow AlignItems="AlignItems.Center">
+                        <RadzenColumn Size="12" SizeMD="10">
+                            <RadzenRow>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@(item.PatientName ?? "—")" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="3">
+                                    <RadzenText Text="Studiu" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenStack Gap="0.125rem">
+                                        <RadzenText Text="@item.OrthancStudyId" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@FormatStudyDate(item.StudyDate)" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    </RadzenStack>
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@(item.ModelName ?? "—")" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <div>
+                                        <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(item.Status)" Text="@item.Status" />
+                                    </div>
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@FormatDateTime(item.CreatedAt)" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="1">
+                                    <RadzenText Text="Încredere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@(item.Confidence.HasValue ? item.Confidence.Value.ToString("P2") : "—")" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
+                                <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Variant="Variant.Text"
+                                              title="Deschide analiza"
+                                              Click="@(() => OpenAnalysis(item))" />
+                                <RadzenButton Icon="folder_open" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Variant="Variant.Text"
+                                              title="Deschide studiul"
+                                              Click="@(() => OpenStudy(item))" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenCard>
+            }
+        </RadzenStack>
+    }
+</RadzenStack>
+
+@code {
+    private List<SitimApiClient.AIAnalysisJobListItemDto> jobs = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadJobs();
+    }
+
+    private async Task LoadJobs()
+    {
+        isLoading = true;
+        try
+        {
+            jobs = await Api.GetAnalysisJobsAsync(100);
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenAnalysis(SitimApiClient.AIAnalysisJobListItemDto item)
+    {
+        var path = item.Status == "Completed"
+            ? $"/analysis/{item.Id}/results"
+            : $"/analysis/{item.Id}";
+        Navigation.NavigateTo(path);
+    }
+
+    private void OpenStudy(SitimApiClient.AIAnalysisJobListItemDto item)
+    {
+        Navigation.NavigateTo($"/studies/{item.OrthancStudyId}");
+    }
+
+    private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
+    {
+        "Queued" => BadgeStyle.Warning,
+        "Running" => BadgeStyle.Info,
+        "Completed" => BadgeStyle.Success,
+        "Failed" => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private static string FormatDateTime(DateTime dt) => dt.ToString("yyyy-MM-dd HH:mm:ss");
+
+    private static string FormatStudyDate(string? date)
+    {
+        if (string.IsNullOrWhiteSpace(date) || date.Length < 8) return date ?? "—";
+        return $"{date[6..8]}.{date[4..6]}.{date[0..4]}";
+    }
+}

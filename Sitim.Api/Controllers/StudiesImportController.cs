@@ -23,18 +23,18 @@ namespace Sitim.Api.Controllers
     [Route("api/studies")]
     public sealed class StudiesImportController : ControllerBase
     {
-        private readonly IOrthancClient _orthanc;
+        private readonly IOrthancClientFactory _orthancFactory;
         private readonly IStudyCacheService _cache;
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenantContext;
 
         public StudiesImportController(
-            IOrthancClient orthanc,
+            IOrthancClientFactory orthancFactory,
             IStudyCacheService cache,
             AppDbContext db,
             ITenantContext tenantContext)
         {
-            _orthanc = orthanc;
+            _orthancFactory = orthancFactory;
             _cache = cache;
             _db = db;
             _tenantContext = tenantContext;
@@ -70,6 +70,10 @@ namespace Sitim.Api.Controllers
             if ((req.Files == null || req.Files.Count == 0) && req.Archive == null)
                 return BadRequest("Provide either 'Archive' (zip) or one or more 'Files' (dicom).");
 
+            var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
+            if (orthanc is null)
+                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+
             var errors = new List<string>();
             var parentStudies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var uploadedInstances = 0;
@@ -99,7 +103,7 @@ namespace Sitim.Api.Controllers
                     try
                     {
                         await using var entryStream = entry.Open();
-                        var result = await _orthanc.UploadInstanceAsync(entryStream, ct);
+                        var result = await orthanc.UploadInstanceAsync(entryStream, ct);
                         uploadedInstances++;
 
                         if (!string.IsNullOrWhiteSpace(result.ParentStudy))
@@ -122,7 +126,7 @@ namespace Sitim.Api.Controllers
                     try
                     {
                         await using var s = f.OpenReadStream();
-                        var result = await _orthanc.UploadInstanceAsync(s, ct);
+                        var result = await orthanc.UploadInstanceAsync(s, ct);
                         uploadedInstances++;
 
                         if (!string.IsNullOrWhiteSpace(result.ParentStudy))
@@ -135,31 +139,7 @@ namespace Sitim.Api.Controllers
                 }
             }
 
-            // 3) Apply institution label in Orthanc (if user belongs to an institution)
-            if (_tenantContext.InstitutionId.HasValue)
-            {
-                var institution = await _db.Institutions
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(i => i.Id == _tenantContext.InstitutionId.Value, ct);
-
-                if (institution is not null)
-                {
-                    foreach (var studyId in parentStudies)
-                    {
-                        try
-                        {
-                            await _orthanc.SetStudyLabelAsync(studyId, institution.OrthancLabel, ct);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Label setting is best-effort: log but don't fail the import
-                            errors.Add($"Label '{institution.OrthancLabel}' for study '{studyId}': {ex.Message}");
-                        }
-                    }
-                }
-            }
-
-            // 4) Sync uploaded studies into our local DB cache
+            // 3) Sync uploaded studies into our local DB cache
             var syncedStudies = 0;
             foreach (var studyId in parentStudies)
             {

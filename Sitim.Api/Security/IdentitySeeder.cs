@@ -7,14 +7,11 @@ using Sitim.Infrastructure.Identity;
 namespace Sitim.Api.Security
 {
     /// <summary>
-    /// Seeds roles, a platform-level SuperAdmin, a demo institution, and a demo Admin user.
+    /// Seeds roles and a platform-level SuperAdmin user.
     /// All operations are idempotent – safe to run on every startup.
     /// </summary>
     public static class IdentitySeeder
     {
-        // Well-known GUID for the demo institution (stable across restarts) for DEV only.
-        public static readonly Guid DemoInstitutionId = new("00000000-0000-0000-0000-000000000001");
-
         public static async Task SeedAsync(IServiceProvider services, IConfiguration config, CancellationToken ct)
         {
             using var scope = services.CreateScope();
@@ -43,40 +40,13 @@ namespace Sitim.Api.Security
                 }
             }
 
-            // 2. Seed demo institution
-            var demoInstitution = await db.Institutions.FirstOrDefaultAsync(i => i.Id == DemoInstitutionId, ct);
-            if (demoInstitution is null)
-            {
-                demoInstitution = new Institution
-                {
-                    Id = DemoInstitutionId,
-                    Name = "Clinica Demo",
-                    Slug = "clinica-demo",
-                    OrthancLabel = "clinica-demo",
-                    IsActive = true,
-                    CreatedAtUtc = DateTime.UtcNow
-                };
-                db.Institutions.Add(demoInstitution);
-                await db.SaveChangesAsync(ct);
-                logger.LogInformation("Seeded demo institution '{Name}'.", demoInstitution.Name);
-            }
-
-            // 3. Seed platform SuperAdmin (no institution)
+            // 2. Seed platform SuperAdmin (no institution)
             var superAdminEmail = config["Seed:SuperAdminEmail"];
             var superAdminPassword = config["Seed:SuperAdminPassword"];
             if (!string.IsNullOrWhiteSpace(superAdminEmail) && !string.IsNullOrWhiteSpace(superAdminPassword))
             {
                 await EnsureUser(userManager, logger, superAdminEmail, superAdminPassword,
                     institutionId: null, role: SitimRoles.SuperAdmin, ct);
-            }
-
-            // 4. Seed demo institution Admin (from legacy Seed:AdminEmail config)
-            var adminEmail = config["Seed:AdminEmail"];
-            var adminPassword = config["Seed:AdminPassword"];
-            if (!string.IsNullOrWhiteSpace(adminEmail) && !string.IsNullOrWhiteSpace(adminPassword))
-            {
-                await EnsureUser(userManager, logger, adminEmail, adminPassword,
-                    institutionId: DemoInstitutionId, role: SitimRoles.Admin, ct);
             }
         }
 

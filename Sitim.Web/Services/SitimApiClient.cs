@@ -109,55 +109,6 @@ public sealed class SitimApiClient
         return result?.Url;
     }
 
-    // ── Analyses ─────────────────────────────────────────
-
-    public async Task<AnalysisJobDto?> CreateAnalysisAsync(string orthancStudyId, string? modelKey = null)
-    {
-        AttachToken();
-        var resp = await _http.PostAsJsonAsync("api/analyses", new CreateAnalysisRequest(orthancStudyId, modelKey));
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<AnalysisJobDto>(JsonOpts);
-    }
-
-    public async Task<AnalysisJobDto?> GetAnalysisAsync(Guid id)
-    {
-        AttachToken();
-        var resp = await _http.GetAsync($"api/analyses/{id}");
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadFromJsonAsync<AnalysisJobDto>(JsonOpts);
-    }
-
-    public async Task<List<AnalysisJobDto>> GetAnalysesByStudyAsync(string orthancStudyId)
-    {
-        AttachToken();
-        var resp = await _http.GetAsync($"api/analyses/by-study/{orthancStudyId}");
-        if (!resp.IsSuccessStatusCode) return [];
-        return await resp.Content.ReadFromJsonAsync<List<AnalysisJobDto>>(JsonOpts) ?? [];
-    }
-
-    public async Task<string?> GetAnalysisResultAsync(Guid id)
-    {
-        AttachToken();
-        var resp = await _http.GetAsync($"api/analyses/{id}/result");
-        if (!resp.IsSuccessStatusCode) return null;
-        return await resp.Content.ReadAsStringAsync();
-    }
-
-    public async Task<bool> ReenqueueAnalysisAsync(Guid id)
-    {
-        AttachToken();
-        var resp = await _http.PostAsync($"api/analyses/{id}/enqueue", null);
-        return resp.IsSuccessStatusCode;
-    }
-
-    public async Task<int> EnqueueUnfinishedAsync()
-    {
-        AttachToken();
-        var resp = await _http.PostAsync("api/analyses/enqueue-unfinished", null);
-        if (!resp.IsSuccessStatusCode) return 0;
-        return await resp.Content.ReadFromJsonAsync<int>(JsonOpts);
-    }
-
     // ── Import ───────────────────────────────────────────
 
     public async Task<ImportResult?> ImportArchiveAsync(Stream fileStream, string fileName)
@@ -255,22 +206,95 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<List<InstitutionResult>>(JsonOpts) ?? [];
     }
 
-    public async Task<InstitutionResult?> CreateInstitutionAsync(string name, string slug, string orthancLabel)
+    public async Task<InstitutionResult?> CreateInstitutionAsync(string name, string slug, string orthancBaseUrl)
     {
         AttachToken();
         var resp = await _http.PostAsJsonAsync("api/institutions",
-            new CreateInstitutionRequest(name, slug, orthancLabel));
+            new CreateInstitutionRequest(name, slug, orthancBaseUrl));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
     }
 
-    public async Task<InstitutionResult?> UpdateInstitutionAsync(Guid id, string name, bool isActive)
+    public async Task<InstitutionResult?> UpdateInstitutionAsync(Guid id, string name, string orthancBaseUrl, bool isActive)
     {
         AttachToken();
         var resp = await _http.PutAsJsonAsync($"api/institutions/{id}",
-            new UpdateInstitutionRequest(name, isActive));
+            new UpdateInstitutionRequest(name, orthancBaseUrl, isActive));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
+    }
+
+    // ── Federated Learning (SuperAdmin) ───────────────────
+
+    public async Task<List<FLSessionDto>> GetFLSessionsAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/fl/sessions");
+        if (!resp.IsSuccessStatusCode) return [];
+        return await resp.Content.ReadFromJsonAsync<List<FLSessionDto>>(JsonOpts) ?? [];
+    }
+
+    public async Task<FLSessionDetailsDto?> GetFLSessionAsync(Guid sessionId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/fl/sessions/{sessionId}");
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<FLSessionDetailsDto>(JsonOpts);
+    }
+
+    public async Task<List<FLConnectedClientDto>> GetFLConnectedClientsAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/fl/clients");
+        if (!resp.IsSuccessStatusCode) return [];
+        return await resp.Content.ReadFromJsonAsync<List<FLConnectedClientDto>>(JsonOpts) ?? [];
+    }
+
+    public async Task<FLSessionDto?> StartFLSessionAsync(string modelKey, int totalRounds, List<Guid> institutionIds)
+    {
+        AttachToken();
+        var request = new StartFLSessionRequest(modelKey, totalRounds, institutionIds);
+        var resp = await _http.PostAsJsonAsync("api/fl/sessions", request);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<FLSessionDto>(JsonOpts);
+    }
+
+    public async Task<bool> StopFLSessionAsync(Guid sessionId)
+    {
+        AttachToken();
+        var resp = await _http.PostAsync($"api/fl/sessions/{sessionId}/stop", null);
+        return resp.IsSuccessStatusCode;
+    }
+
+    public async Task<FLPublishedModelDto?> GetFLPublishedModelAsync(Guid sessionId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/fl/sessions/{sessionId}/published-model");
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<FLPublishedModelDto>(JsonOpts);
+    }
+
+    public async Task<FLPublishedModelDto?> ActivateFLPublishedModelAsync(Guid sessionId)
+    {
+        AttachToken();
+        var resp = await _http.PostAsync($"api/fl/sessions/{sessionId}/activate-model", null);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<FLPublishedModelDto>(JsonOpts);
+    }
+
+    public async Task<List<ModelDefinitionDto>> GetModelRegistryAsync(bool activeOnly = false, string? task = null, string? modality = null)
+    {
+        AttachToken();
+
+        var query = new List<string>();
+        if (activeOnly) query.Add("activeOnly=true");
+        if (!string.IsNullOrWhiteSpace(task)) query.Add($"task={Uri.EscapeDataString(task)}");
+        if (!string.IsNullOrWhiteSpace(modality)) query.Add($"modality={Uri.EscapeDataString(modality)}");
+        var queryString = query.Count > 0 ? "?" + string.Join("&", query) : string.Empty;
+
+        var resp = await _http.GetAsync($"api/models{queryString}");
+        if (!resp.IsSuccessStatusCode) return [];
+        return await resp.Content.ReadFromJsonAsync<List<ModelDefinitionDto>>(JsonOpts) ?? [];
     }
 
     // ── DTOs locale ──────────────────────────────────────
@@ -280,12 +304,303 @@ public sealed class SitimApiClient
     public sealed record SyncAllResult(int Synced);
     public sealed record ViewerLinkResult(string Url);
     public sealed record ImportResult(int UploadedInstances, List<string> OrthancStudyIds, int SyncedStudies, List<string> Errors);
-    public sealed record InstitutionResult(Guid Id, string Name, string Slug, string OrthancLabel, bool IsActive, DateTime CreatedAtUtc);
-    public sealed record CreateInstitutionRequest(string Name, string Slug, string OrthancLabel);
-    public sealed record UpdateInstitutionRequest(string Name, bool IsActive);
+    public sealed record InstitutionResult(Guid Id, string Name, string Slug, string OrthancBaseUrl, bool IsActive, DateTime CreatedAtUtc);
+    public sealed record CreateInstitutionRequest(string Name, string Slug, string OrthancBaseUrl);
+    public sealed record UpdateInstitutionRequest(string Name, string OrthancBaseUrl, bool IsActive);
     public sealed record UserResult(Guid Id, string Email, string? FullName, string Role, Guid? InstitutionId, string? InstitutionName, bool IsActive, DateTime CreatedAtUtc);
     public sealed record InviteUserRequest(string Email, string? FullName, string Role, Guid? InstitutionId);
     public sealed record InviteUserResponse(Guid UserId, string Email, string InviteLink);
     public sealed record UpdateUserRequest(string? FullName, string? Role, bool? IsActive);
     public sealed record SetPasswordRequest(Guid UserId, string Token, string NewPassword);
+    public sealed record StartFLSessionRequest(string ModelKey, int TotalRounds, List<Guid> InstitutionIds);
+    public sealed record FLSessionDto(
+        Guid Id,
+        string ModelKey,
+        string Status,
+        int TotalRounds,
+        int CurrentRound,
+        int ParticipantsCount,
+        DateTime CreatedAtUtc,
+        DateTime? StartedAtUtc,
+        DateTime? FinishedAtUtc);
+    public sealed record FLParticipantDto(
+        Guid InstitutionId,
+        string InstitutionName,
+        string Status,
+        DateTime? LastHeartbeatUtc);
+    public sealed record FLConnectedClientDto(
+        Guid InstitutionId,
+        string ClientId,
+        string Status,
+        DateTime? LastHeartbeatUtc,
+        bool IsOnline);
+    public sealed record FLRoundDto(
+        int RoundNumber,
+        decimal? AggregatedLoss,
+        decimal? AggregatedAccuracy,
+        DateTime? CompletedAtUtc);
+    public sealed record FLSessionDetailsDto(
+        Guid Id,
+        string ModelKey,
+        string Status,
+        int TotalRounds,
+        int CurrentRound,
+        Guid CreatedByUserId,
+        DateTime CreatedAtUtc,
+        DateTime? StartedAtUtc,
+        DateTime? FinishedAtUtc,
+        string? LastError,
+        string? OutputModelPath,
+        List<FLParticipantDto> Participants,
+        List<FLRoundDto> Rounds);
+    public sealed record FLPublishedModelDto(
+        Guid ModelId,
+        string Name,
+        string Task,
+        string Version,
+        string StorageFileName,
+        bool IsActive);
+    public sealed record ModelDefinitionDto(
+        Guid Id,
+        string Name,
+        string Task,
+        string Version,
+        bool IsActive,
+        string StorageFileName,
+        decimal? Accuracy,
+        string? TrainingSource,
+        string? TargetModality,
+        DateTime CreatedAt);
+
+    // ── AI Models ─────────────────────────────────────────
+
+    public async Task<List<AIModelDto>> GetAIModelsAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/ai/models");
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<List<AIModelDto>>(JsonOpts) ?? new();
+    }
+
+    public async Task<bool> ToggleModelStatusAsync(Guid modelId)
+    {
+        AttachToken();
+        var resp = await _http.PatchAsync($"api/ai/models/{modelId}/toggle", null);
+        return resp.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteModelAsync(Guid modelId)
+    {
+        AttachToken();
+        var resp = await _http.DeleteAsync($"api/ai/models/{modelId}");
+        return resp.IsSuccessStatusCode;
+    }
+
+    public async Task<List<AIModelDto>> GetActiveModelsAsync()
+    {
+        AttachToken();
+        var resp = await _http.GetAsync("api/ai/models");
+        resp.EnsureSuccessStatusCode();
+        var allModels = await resp.Content.ReadFromJsonAsync<List<AIModelDto>>(JsonOpts) ?? new();
+        return allModels.Where(m => m.IsActive).ToList();
+    }
+
+    public async Task<AIAnalysisResultDto?> RunAIAnalysisAsync(Guid studyId, Guid? modelId = null)
+    {
+        AttachToken();
+        var request = new AnalyzeStudyRequest(studyId, modelId);
+        var resp = await _http.PostAsJsonAsync("api/ai/analyze", request);
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<AIAnalysisResultDto>(JsonOpts);
+    }
+
+    /// <summary>
+    /// Get AI models compatible with a study's modality.
+    /// Returns filtered list sorted by accuracy.
+    /// </summary>
+    public async Task<List<AIModelSelectionDto>> GetCompatibleModelsAsync(Guid studyId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/models-for-study/{studyId}");
+        if (!resp.IsSuccessStatusCode) return new();
+        return await resp.Content.ReadFromJsonAsync<List<AIModelSelectionDto>>(JsonOpts) ?? new();
+    }
+
+    /// <summary>
+    /// Start an AI analysis job (runs in background via Hangfire).
+    /// Returns job ID for polling job status.
+    /// </summary>
+    public async Task<Guid> StartAnalysisAsync(Guid studyId, Guid modelId)
+    {
+        AttachToken();
+        var request = new AnalyzeStudyRequest(studyId, modelId);
+        var resp = await _http.PostAsJsonAsync("api/ai/analyze", request);
+        if (!resp.IsSuccessStatusCode) 
+            throw new InvalidOperationException("Failed to start analysis");
+        var result = await resp.Content.ReadFromJsonAsync<StartAnalysisResponseDto>(JsonOpts);
+        return result?.JobId ?? throw new InvalidOperationException("No job ID returned");
+    }
+
+    /// <summary>
+    /// Get latest analysis jobs (running + completed) visible in current tenant.
+    /// </summary>
+    public async Task<List<AIAnalysisJobListItemDto>> GetAnalysisJobsAsync(int limit = 100)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/jobs?limit={limit}");
+        if (!resp.IsSuccessStatusCode) return new();
+        return await resp.Content.ReadFromJsonAsync<List<AIAnalysisJobListItemDto>>(JsonOpts) ?? new();
+    }
+
+    /// <summary>
+    /// Get all analysis jobs for one study (running first, then latest completed/failed).
+    /// </summary>
+    public async Task<List<AIAnalysisJobListItemDto>> GetStudyAnalysisJobsAsync(Guid studyId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/studies/{studyId}/jobs");
+        if (!resp.IsSuccessStatusCode) return new();
+        return await resp.Content.ReadFromJsonAsync<List<AIAnalysisJobListItemDto>>(JsonOpts) ?? new();
+    }
+
+    /// <summary>
+    /// Get AI analysis job status and results (for polling).
+    /// </summary>
+    public async Task<AIAnalysisJobStatusDto?> GetAnalysisJobAsync(Guid jobId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/jobs/{jobId}");
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<AIAnalysisJobStatusDto>(JsonOpts);
+    }
+
+    /// <summary>
+    /// Get full analysis results with diagnosis, severity, and recommendations.
+    /// </summary>
+    public async Task<AIAnalysisResultDto?> GetAnalysisResultsAsync(Guid jobId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/jobs/{jobId}/results");
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<AIAnalysisResultDto>(JsonOpts);
+    }
+
+    /// <summary>
+    /// Cancel a running analysis job.
+    /// </summary>
+    public async Task<bool> CancelAnalysisAsync(Guid jobId)
+    {
+        AttachToken();
+        var resp = await _http.PostAsync($"api/ai/jobs/{jobId}/cancel", null);
+        return resp.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Delete a completed analysis job record.
+    /// </summary>
+    public async Task<bool> DeleteAnalysisAsync(Guid jobId)
+    {
+        AttachToken();
+        var resp = await _http.DeleteAsync($"api/ai/jobs/{jobId}");
+        return resp.IsSuccessStatusCode;
+    }
+
+    /// <summary>
+    /// Get analysis history for a study.
+    /// </summary>
+    public async Task<List<AIAnalysisResultDto>?> GetAnalysisHistoryAsync(Guid studyId)
+    {
+        AttachToken();
+        var resp = await _http.GetAsync($"api/ai/studies/{studyId}/history");
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<List<AIAnalysisResultDto>>(JsonOpts);
+    }
+
+    public sealed record AnalyzeStudyRequest(Guid StudyId, Guid? ModelId = null);
+
+    public sealed record AIAnalysisResultDto(
+        Guid Id,
+        string ModelName,
+        string ModelVersion,
+        int? PredictionClass,
+        decimal Confidence,
+        string Diagnosis,
+        string Severity,
+        List<string> Recommendations,
+        List<ClassProbability> AllProbabilities,
+        int ProcessingTimeMs,
+        DateTime PerformedAt,
+        string PerformedByUserName
+    );
+
+    public sealed record ClassProbability(string ClassName, decimal Probability);
+
+    // Hangfire Job DTOs
+    public sealed record StartAnalysisResponseDto(
+        Guid JobId,
+        string Status,
+        DateTime CreatedAt
+    );
+
+    public sealed record AIAnalysisJobStatusDto(
+        Guid Id,
+        Guid StudyId,
+        string OrthancStudyId,
+        string Status,
+        DateTime CreatedAt,
+        DateTime? StartedAt,
+        DateTime? FinishedAt,
+        string? ModelName,
+        int? PredictionClass,
+        decimal? Confidence,
+        int? ProcessingTimeMs,
+        string? ErrorMessage
+    );
+
+    public sealed record AIAnalysisJobListItemDto(
+        Guid Id,
+        Guid StudyId,
+        string OrthancStudyId,
+        string? PatientName,
+        string? StudyDate,
+        IReadOnlyList<string> ModalitiesInStudy,
+        string Status,
+        DateTime CreatedAt,
+        DateTime? StartedAt,
+        DateTime? FinishedAt,
+        string? ModelName,
+        int? PredictionClass,
+        decimal? Confidence,
+        int? ProcessingTimeMs,
+        string? ErrorMessage
+    );
+
+    public sealed record AIModelDto(
+        Guid Id,
+        string Name,
+        string? Description,
+        string Task,
+        string Version,
+        string StorageFileName,
+        decimal? Accuracy,
+        bool IsActive,
+        int? NumClasses,
+        string? InputShape,
+        string? TrainingSource,
+        DateTime CreatedAt
+    );
+
+    // Model selection DTO (lightweight, for UI)
+    public sealed record AIModelSelectionDto(
+        Guid Id,
+        string Name,
+        string Version,
+        string Task,
+        decimal? Accuracy,
+        string? TargetModality,
+        string? Description
+    )
+    {
+        public string Label => $"{Name} (v{Version})";
+    };
 }

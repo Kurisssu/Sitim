@@ -35,7 +35,7 @@ else
                     <RadzenButton Text="Sincronizare" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                                   Click="@OnSync" />
                     <AuthorizeView Roles="Admin,Doctor,Technician">
-                        <RadzenButton Text="Pornește Analiză" Icon="science" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                        <RadzenButton Text="Analiză" Icon="science" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                                       Click="@OnStartAnalysis" />
                     </AuthorizeView>
                 </RadzenStack>
@@ -125,34 +125,65 @@ else
             }
         </RadzenCard>
 
-        @* ── Analize pentru acest studiu ──────────────────── *@
+        @* ── Analize pe studiu ──────────────────────────────── *@
         <RadzenCard>
-            <RadzenText Text="Analize" TextStyle="TextStyle.H6" class="rz-mb-3" />
-            @if (analyses.Count == 0)
+            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-2">
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenText Text="Analize pe acest studiu" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                </RadzenColumn>
+                <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
+                    <RadzenButton Icon="refresh" Text="Reîncarcă" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                  Click="@LoadStudyAnalyses" IsBusy="@isLoadingAnalyses" />
+                </RadzenColumn>
+            </RadzenRow>
+
+            @if (isLoadingAnalyses)
             {
-                <RadzenText Text="Nu există analize pentru acest studiu." TextStyle="TextStyle.Body2" style="color: var(--rz-text-tertiary-color);" />
+                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Primary" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+            }
+            else if (!studyAnalyses.Any())
+            {
+                <RadzenText Text="Nu există încă analize pentru acest studiu." TextStyle="TextStyle.Body2"
+                            style="color: var(--rz-text-secondary-color);" />
             }
             else
             {
-                <RadzenDataGrid Data="@analyses" TItem="AnalysisJobDto" AllowSorting="true" Density="Density.Compact">
-                    <Columns>
-                        <RadzenDataGridColumn TItem="AnalysisJobDto" Property="ModelKey" Title="Model" Width="120px" />
-                        <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Status" Width="120px">
-                            <Template Context="job">
-                                <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(job.Status)" Text="@job.Status" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="AnalysisJobDto" Property="CreatedAtUtc" Title="Creat" Width="160px">
-                            <Template Context="job">@job.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</Template>
-                        </RadzenDataGridColumn>
-                        <RadzenDataGridColumn TItem="AnalysisJobDto" Title="Acțiuni" Width="120px" Sortable="false" TextAlign="TextAlign.Center">
-                            <Template Context="job">
-                                <RadzenButton Icon="info" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
-                                              Click="@(() => Navigation.NavigateTo($"/analyses/{job.Id}"))" title="Detalii analiză" />
-                            </Template>
-                        </RadzenDataGridColumn>
-                    </Columns>
-                </RadzenDataGrid>
+                <RadzenStack Gap="0.5rem">
+                    @foreach (var item in studyAnalyses)
+                    {
+                        <RadzenCard>
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenColumn Size="12" SizeMD="10">
+                                    <RadzenRow>
+                                        <RadzenColumn Size="6" SizeMD="3">
+                                            <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <div>
+                                                <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(item.Status)" Text="@item.Status" />
+                                            </div>
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6" SizeMD="3">
+                                            <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@(item.ModelName ?? "—")" TextStyle="TextStyle.Body2" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6" SizeMD="3">
+                                            <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@FormatDateTime(item.CreatedAt)" TextStyle="TextStyle.Body2" />
+                                        </RadzenColumn>
+                                        <RadzenColumn Size="6" SizeMD="3">
+                                            <RadzenText Text="Încredere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@(item.Confidence.HasValue ? item.Confidence.Value.ToString("P2") : "—")" TextStyle="TextStyle.Body2" />
+                                        </RadzenColumn>
+                                    </RadzenRow>
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                                    <RadzenButton Icon="arrow_forward" ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" Size="ButtonSize.Small"
+                                                  title="Deschide analiza"
+                                                  Click="@(() => OpenStudyAnalysis(item))" />
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenCard>
+                    }
+                </RadzenStack>
             }
         </RadzenCard>
     </RadzenStack>
@@ -164,11 +195,12 @@ else
     private bool IsDoctor => TokenStore.Roles.Contains("Doctor") && !TokenStore.IsSuperAdmin;
 
     private Sitim.Core.Models.StudyDetails? study;
-    private List<AnalysisJobDto> analyses = [];
+    private List<SitimApiClient.AIAnalysisJobListItemDto> studyAnalyses = new();
     private string? viewerUrl;
     private bool viewerUnavailable;
     private bool isLoading = true;
     private bool isLoadingViewer;
+    private bool isLoadingAnalyses;
 
     protected override async Task OnInitializedAsync()
     {
@@ -181,10 +213,7 @@ else
         try
         {
             study = await Api.GetLocalStudyAsync(OrthancStudyId);
-            if (study is not null)
-            {
-                analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
-            }
+            await LoadStudyAnalyses();
         }
         catch (Exception ex)
         {
@@ -231,7 +260,7 @@ else
         try
         {
             study = await Api.SyncStudyAsync(OrthancStudyId);
-            analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
+            await LoadStudyAnalyses();
             Notification.Notify(NotificationSeverity.Success, "Sincronizat", "Studiul a fost sincronizat din Orthanc.");
         }
         catch (Exception ex)
@@ -240,29 +269,107 @@ else
         }
     }
 
+    // Model selection dialog + start background analysis job
     private async Task OnStartAnalysis()
     {
-        var result = await Api.CreateAnalysisAsync(OrthancStudyId);
-        if (result is not null)
+        if (study?.DbStudyId == null || study.DbStudyId == Guid.Empty)
         {
-            Notification.Notify(NotificationSeverity.Success, "Analiză pornită", $"Job {result.Id} creat cu succes.");
-            analyses = await Api.GetAnalysesByStudyAsync(OrthancStudyId);
-            Navigation.NavigateTo($"/analyses/{result.Id}");
+            Notification.Notify(NotificationSeverity.Error, "Eroare", "Studiul nu are ID din baza de date.");
+            return;
         }
-        else
+
+        try
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut porni analiza.");
+            // Get compatible models for this study (by modality)
+            var models = await Api.GetCompatibleModelsAsync(study.DbStudyId.Value);
+            
+            if (!models.Any())
+            {
+                Notification.Notify(NotificationSeverity.Warning, "Niciun model disponibil", 
+                    $"Nu sunt modele compatibile cu modalitatea acestui studiu ({string.Join(", ", study.ModalitiesInStudy)}).");
+                return;
+            }
+
+            // Show model selection dialog
+            var result = await Dialog.OpenAsync<ModelSelectionDialog>("Selectare Model pentru Analiză",
+                new Dictionary<string, object?> { { "Models", models } },
+                new DialogOptions { Width = "92vw", Height = "84vh", Resizable = false, Draggable = true });
+
+            if (result is Guid selectedModelId)
+            {
+                // Start analysis in background (Hangfire job)
+                await StartAnalysisJob(study.DbStudyId.Value, selectedModelId);
+            }
         }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut încărca modelele: {ex.Message}");
+        }
+    }
+
+    private async Task StartAnalysisJob(Guid studyId, Guid modelId)
+    {
+        try
+        {
+            var jobId = await Api.StartAnalysisAsync(studyId, modelId);
+            
+            Notification.Notify(NotificationSeverity.Success, "Analiză pornită", 
+                $"Analiza a fost adăugată în coadă (Job ID: {jobId:N}).");
+            
+            // Navigate to analysis progress page to track job
+            Navigation.NavigateTo($"/analysis/{jobId}");
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare la pornire analiză", ex.Message);
+        }
+    }
+
+    private async Task LoadStudyAnalyses()
+    {
+        if (study?.DbStudyId == null || study.DbStudyId == Guid.Empty)
+        {
+            studyAnalyses = new();
+            return;
+        }
+
+        isLoadingAnalyses = true;
+        try
+        {
+            studyAnalyses = await Api.GetStudyAnalysisJobsAsync(study.DbStudyId.Value);
+        }
+        catch (Exception ex)
+        {
+            Notification.Notify(NotificationSeverity.Error, "Eroare analize", ex.Message);
+            studyAnalyses = new();
+        }
+        finally
+        {
+            isLoadingAnalyses = false;
+        }
+    }
+
+    private void OpenStudyAnalysis(SitimApiClient.AIAnalysisJobListItemDto analysisJob)
+    {
+        var path = analysisJob.Status == "Completed"
+            ? $"/analysis/{analysisJob.Id}/results"
+            : $"/analysis/{analysisJob.Id}";
+        Navigation.NavigateTo(path);
     }
 
     private static BadgeStyle GetStatusBadgeStyle(string status) => status switch
     {
         "Queued" => BadgeStyle.Warning,
         "Running" => BadgeStyle.Info,
-        "Succeeded" => BadgeStyle.Success,
+        "Completed" => BadgeStyle.Success,
         "Failed" => BadgeStyle.Danger,
         _ => BadgeStyle.Light
     };
+
+    private static string FormatDateTime(DateTime dt)
+    {
+        return dt.ToString("yyyy-MM-dd HH:mm:ss");
+    }
 
     private static string FormatStudyDate(string? date)
     {

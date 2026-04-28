@@ -3,6 +3,7 @@ namespace Sitim.Core.Entities
     /// <summary>
     /// Represents a medical institution (hospital, clinic) that acts as a tenant in the platform.
     /// All business data (patients, studies, analyses) is scoped to an institution.
+    /// Each institution has its own dedicated Orthanc PACS instance.
     /// </summary>
     public sealed class Institution
     {
@@ -15,10 +16,11 @@ namespace Sitim.Core.Entities
         public string Slug { get; set; } = default!;
 
         /// <summary>
-        /// Label applied to Orthanc studies belonging to this institution (Orthanc Labels API).
-        /// Must be unique across institutions.
+        /// Base URL of the dedicated Orthanc PACS instance for this institution.
+        /// Example: "http://orthanc-mci:8042" or "https://orthanc-scj-cluj.sitim.local".
+        /// Each institution has its own isolated Orthanc instance for data privacy and Federated Learning.
         /// </summary>
-        public string OrthancLabel { get; set; } = default!;
+        public string OrthancBaseUrl { get; set; } = default!;
 
         public bool IsActive { get; set; } = true;
 

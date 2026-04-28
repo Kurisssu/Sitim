@@ -1,0 +1,273 @@
+@page "/ai-models"
+@using Microsoft.AspNetCore.Authorization
+@using Sitim.Web.Services
+@using Sitim.Web.Components.Dialogs
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@inject SitimApiClient ApiClient
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+
+<PageTitle>Modele AI - SITIM</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <RadzenRow AlignItems="AlignItems.Center">
+        <RadzenColumn Size="12" SizeMD="8">
+            <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
+                Modele AI
+            </RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2" class="rz-text-tertiary-color">
+                Gestionează modelele de inteligență artificială pentru analiză medicală
+            </RadzenText>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenButton Text="Încarcă Model Nou" 
+                          Icon="add" 
+                          ButtonStyle="ButtonStyle.Primary" 
+                          Click="@ShowUploadDialog"
+                          Style="width: 100%;" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    @if (isLoading)
+    {
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
+                <RadzenText>Se încarcă modelele...</RadzenText>
+            </RadzenStack>
+        </RadzenCard>
+    }
+    else if (models == null || !models.Any())
+    {
+        <RadzenCard>
+            <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" class="rz-py-8">
+                <RadzenIcon Icon="psychology" Style="font-size: 3rem; color: var(--rz-text-disabled-color);" />
+                <RadzenText TextStyle="TextStyle.H6" class="rz-text-tertiary-color">
+                    Nu există modele AI încărcate
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Body2" class="rz-text-tertiary-color">
+                    Începe prin a încărca un model antrenat în format ONNX
+                </RadzenText>
+            </RadzenStack>
+        </RadzenCard>
+    }
+    else
+    {
+        <RadzenStack Gap="0.5rem">
+            @foreach (var model in models)
+            {
+                <RadzenCard>
+                    <RadzenRow AlignItems="AlignItems.Center">
+                        <RadzenColumn Size="12" SizeMD="10">
+                            <RadzenRow>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Nume model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenStack Gap="0.125rem">
+                                        <RadzenText Text="@model.Name" TextStyle="TextStyle.Body2" />
+                                        <RadzenText Text="@($"v{model.Version}")" TextStyle="TextStyle.Caption" />
+                                    </RadzenStack>
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="2">
+                                    <RadzenText Text="Tip analiză" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <div>
+                                        <RadzenBadge Text="@GetTaskDisplayName(model.Task)" BadgeStyle="BadgeStyle.Info" Variant="Variant.Flat" />
+                                    </div>
+                                </RadzenColumn>
+                                <RadzenColumn Size="12" SizeMD="3">
+                                    <RadzenText Text="Descriere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@(string.IsNullOrWhiteSpace(model.Description) ? "—" : model.Description)" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="1">
+                                    <RadzenText Text="Acuratețe" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@(model.Accuracy.HasValue ? $"{model.Accuracy.Value:P1}" : "—")" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="1">
+                                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <div>
+                                        @if (model.IsActive)
+                                        {
+                                            <RadzenBadge Text="Activ" BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" />
+                                        }
+                                        else
+                                        {
+                                            <RadzenBadge Text="Inactiv" BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Flat" />
+                                        }
+                                    </div>
+                                </RadzenColumn>
+                                <RadzenColumn Size="6" SizeMD="3">
+                                    <RadzenText Text="Data încărcării" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@model.CreatedAt.ToString("dd.MM.yyyy HH:mm")" TextStyle="TextStyle.Body2" />
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenColumn>
+                        <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
+                            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+                                <RadzenButton Icon="info"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Size="ButtonSize.Small"
+                                              Click="@(() => ShowModelDetails(model))"
+                                              title="Detalii" />
+                                <RadzenButton Icon="@(model.IsActive ? "toggle_on" : "toggle_off")"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Size="ButtonSize.Small"
+                                              Click="@(() => ToggleModelStatus(model))"
+                                              title="@(model.IsActive ? "Dezactivează" : "Activează")" />
+                                <RadzenButton Icon="delete"
+                                              ButtonStyle="ButtonStyle.Danger"
+                                              Size="ButtonSize.Small"
+                                              Click="@(() => DeleteModel(model))"
+                                              title="Șterge" />
+                            </RadzenStack>
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenCard>
+            }
+        </RadzenStack>
+    }
+</RadzenStack>
+
+@code {
+    private List<SitimApiClient.AIModelDto>? models;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadModels();
+    }
+
+    private async Task LoadModels()
+    {
+        isLoading = true;
+        try
+        {
+            models = await ApiClient.GetAIModelsAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-au putut încărca modelele: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ShowUploadDialog()
+    {
+        var result = await DialogService.OpenAsync<UploadModelDialog>(
+            "Încarcă Model AI",
+            new Dictionary<string, object>
+            {
+                { "OnUploadComplete", EventCallback.Factory.Create(this, LoadModels) }
+            },
+            new DialogOptions 
+            { 
+                Width = "700px",
+                Height = "auto",
+                Resizable = true,
+                Draggable = true
+            }
+        );
+
+        if (result == true)
+        {
+            await LoadModels();
+        }
+    }
+
+    private async Task ShowModelDetails(SitimApiClient.AIModelDto model)
+    {
+        var details = $@"
+Model: {model.Name} v{model.Version}
+Tip analiză: {GetTaskDisplayName(model.Task)}
+Acuratețe: {(model.Accuracy.HasValue ? $"{model.Accuracy.Value:P2}" : "N/A")}
+Clase: {model.NumClasses ?? 0}
+Dimensiune input: {model.InputShape ?? "N/A"}
+Sursă antrenare: {model.TrainingSource ?? "N/A"}
+Fișier stocare: {model.StorageFileName}
+Data încărcării: {model.CreatedAt:dd.MM.yyyy HH:mm}
+
+Descriere:
+{model.Description ?? "N/A"}
+";
+
+        await DialogService.Alert(details, $"Detalii Model: {model.Name}", new AlertOptions 
+        { 
+            OkButtonText = "Închide",
+            Width = "600px"
+        });
+    }
+
+    private async Task ToggleModelStatus(SitimApiClient.AIModelDto model)
+    {
+        var action = model.IsActive ? "dezactivezi" : "activezi";
+        var confirmed = await DialogService.Confirm(
+            $"Ești sigur că vrei să {action} modelul '{model.Name}'?",
+            "Confirmare",
+            new ConfirmOptions { OkButtonText = "Da", CancelButtonText = "Anulează" }
+        );
+
+        if (confirmed == true)
+        {
+            try
+            {
+                var success = await ApiClient.ToggleModelStatusAsync(model.Id);
+                if (success)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Succes", $"Modelul a fost {(model.IsActive ? "dezactivat" : "activat")}");
+                    await LoadModels();
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut modifica statusul");
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut modifica statusul: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task DeleteModel(SitimApiClient.AIModelDto model)
+    {
+        var confirmed = await DialogService.Confirm(
+            $"Ești sigur că vrei să ștergi modelul '{model.Name}' v{model.Version}? Această acțiune este ireversibilă.",
+            "Confirmare Ștergere",
+            new ConfirmOptions { OkButtonText = "Șterge", CancelButtonText = "Anulează" }
+        );
+
+        if (confirmed == true)
+        {
+            try
+            {
+                var success = await ApiClient.DeleteModelAsync(model.Id);
+                if (success)
+                {
+                    NotificationService.Notify(NotificationSeverity.Success, "Succes", "Modelul a fost șters");
+                    await LoadModels();
+                }
+                else
+                {
+                    NotificationService.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut șterge modelul");
+                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut șterge modelul: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetTaskDisplayName(string? task)
+    {
+        return task switch
+        {
+            "diabetic_retinopathy" => "Retinopatie Diabetică",
+            "chest_xray" => "Radiografie Toracică",
+            "brain_tumor" => "Tumoare Cerebrală",
+            "skin_lesion" => "Leziune Cutanată",
+            _ => task ?? "Necunoscut"
+        };
+    }
+}

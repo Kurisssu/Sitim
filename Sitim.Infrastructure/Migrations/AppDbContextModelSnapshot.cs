@@ -152,7 +152,179 @@ namespace Sitim.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Sitim.Core.Entities.AnalysisJob", b =>
+            modelBuilder.Entity("Sitim.Core.Entities.AIAnalysisJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Confidence")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at_utc");
+
+                    b.Property<string>("HangfireJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("hangfire_job_id");
+
+                    b.Property<Guid>("ModelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PerformedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PerformedByUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("performed_by_user_name");
+
+                    b.Property<int?>("PredictionClass")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Probabilities")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ProcessingTimeMs")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Queued")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("StudyId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HangfireJobId");
+
+                    b.HasIndex("ModelId");
+
+                    b.HasIndex("PerformedByUserId");
+
+                    b.HasIndex("StudyId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("ai_analysis_jobs", (string)null);
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.AIModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Accuracy")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)");
+
+                    b.Property<string>("ClassNames")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClassRecommendations")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClassSeverities")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DetectablePathologies")
+                        .HasColumnType("text");
+
+                    b.Property<string>("InputShape")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int?>("NumClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NumOutputClasses")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OnnxInputSpec")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OnnxOutputSpec")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("PreprocessingImageSize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PreprocessingMean")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PreprocessingMethod")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PreprocessingStd")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StorageFileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SupportedRegions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetModality")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Task")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TrainingSource")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Task", "IsActive");
+
+                    b.ToTable("ai_models", (string)null);
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLModelUpdate", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -162,26 +334,135 @@ namespace Sitim.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
-                    b.Property<Guid?>("CreatedByUserId")
+                    b.Property<Guid>("InstitutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RoundNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("round_number");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("TrainingLoss")
+                        .HasPrecision(8, 6)
+                        .HasColumnType("numeric(8,6)")
+                        .HasColumnName("training_loss");
+
+                    b.Property<string>("UpdateArtifactPath")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("update_artifact_path");
+
+                    b.Property<decimal?>("ValidationAccuracy")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("validation_accuracy");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstitutionId");
+
+                    b.HasIndex("SessionId", "InstitutionId", "RoundNumber");
+
+                    b.ToTable("fl_model_updates", (string)null);
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InstitutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("LastHeartbeatUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_heartbeat_utc");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstitutionId");
+
+                    b.HasIndex("SessionId", "InstitutionId")
+                        .IsUnique();
+
+                    b.ToTable("fl_participants", (string)null);
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLRound", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AggregatedAccuracy")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("aggregated_accuracy");
+
+                    b.Property<decimal?>("AggregatedLoss")
+                        .HasPrecision(8, 6)
+                        .HasColumnType("numeric(8,6)")
+                        .HasColumnName("aggregated_loss");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<int>("RoundNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("round_number");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "RoundNumber")
+                        .IsUnique();
+
+                    b.ToTable("fl_rounds", (string)null);
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
 
-                    b.Property<string>("ErrorMessage")
-                        .HasColumnType("text")
-                        .HasColumnName("error_message");
+                    b.Property<int>("CurrentRound")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_round");
+
+                    b.Property<string>("ExternalSessionId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("external_session_id");
 
                     b.Property<DateTime?>("FinishedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_at_utc");
 
-                    b.Property<string>("HangfireJobId")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("hangfire_job_id");
-
-                    b.Property<Guid?>("InstitutionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("institution_id");
+                    b.Property<string>("LastError")
+                        .HasColumnType("text")
+                        .HasColumnName("last_error");
 
                     b.Property<string>("ModelKey")
                         .IsRequired()
@@ -189,37 +470,30 @@ namespace Sitim.Infrastructure.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("model_key");
 
-                    b.Property<string>("OrthancStudyId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("orthanc_study_id");
-
-                    b.Property<string>("ResultJsonPath")
-                        .HasColumnType("text")
-                        .HasColumnName("result_json_path");
+                    b.Property<string>("OutputModelPath")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("output_model_path");
 
                     b.Property<DateTime?>("StartedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at_utc");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
                         .HasColumnName("status");
 
-                    b.Property<string>("StudyArchivePath")
-                        .HasColumnType("text")
-                        .HasColumnName("study_archive_path");
+                    b.Property<int>("TotalRounds")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_rounds");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InstitutionId");
+                    b.HasIndex("CreatedAtUtc");
 
-                    b.HasIndex("OrthancStudyId");
+                    b.HasIndex("Status");
 
-                    b.ToTable("analysis_jobs", (string)null);
+                    b.ToTable("fl_sessions", (string)null);
                 });
 
             modelBuilder.Entity("Sitim.Core.Entities.ImagingSeries", b =>
@@ -325,10 +599,10 @@ namespace Sitim.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<string>("OrthancLabel")
+                    b.Property<string>("OrthancBaseUrl")
                         .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -336,9 +610,6 @@ namespace Sitim.Infrastructure.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("OrthancLabel")
-                        .IsUnique();
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -509,6 +780,74 @@ namespace Sitim.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Sitim.Core.Entities.AIAnalysisJob", b =>
+                {
+                    b.HasOne("Sitim.Core.Entities.AIModel", "Model")
+                        .WithMany("AnalysisJobs")
+                        .HasForeignKey("ModelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Sitim.Core.Entities.ImagingStudy", "Study")
+                        .WithMany()
+                        .HasForeignKey("StudyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Model");
+
+                    b.Navigation("Study");
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLModelUpdate", b =>
+                {
+                    b.HasOne("Sitim.Core.Entities.Institution", "Institution")
+                        .WithMany()
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Sitim.Core.Entities.FLSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Institution");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLParticipant", b =>
+                {
+                    b.HasOne("Sitim.Core.Entities.Institution", "Institution")
+                        .WithMany()
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Sitim.Core.Entities.FLSession", "Session")
+                        .WithMany("Participants")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Institution");
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLRound", b =>
+                {
+                    b.HasOne("Sitim.Core.Entities.FLSession", "Session")
+                        .WithMany("Rounds")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
             modelBuilder.Entity("Sitim.Core.Entities.ImagingSeries", b =>
                 {
                     b.HasOne("Sitim.Core.Entities.ImagingStudy", "Study")
@@ -528,6 +867,18 @@ namespace Sitim.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.AIModel", b =>
+                {
+                    b.Navigation("AnalysisJobs");
+                });
+
+            modelBuilder.Entity("Sitim.Core.Entities.FLSession", b =>
+                {
+                    b.Navigation("Participants");
+
+                    b.Navigation("Rounds");
                 });
 
             modelBuilder.Entity("Sitim.Core.Entities.ImagingStudy", b =>

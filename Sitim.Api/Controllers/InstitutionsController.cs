@@ -27,17 +27,18 @@ namespace Sitim.Api.Controllers
             Guid Id,
             string Name,
             string Slug,
-            string OrthancLabel,
+            string OrthancBaseUrl,
             bool IsActive,
             DateTime CreatedAtUtc);
 
         public sealed record CreateInstitutionRequest(
             string Name,
             string Slug,
-            string OrthancLabel);
+            string OrthancBaseUrl);
 
         public sealed record UpdateInstitutionRequest(
             string Name,
+            string OrthancBaseUrl,
             bool IsActive);
 
         [HttpGet]
@@ -63,19 +64,17 @@ namespace Sitim.Api.Controllers
         {
             if (string.IsNullOrWhiteSpace(req.Name)) return BadRequest("Name is required.");
             if (string.IsNullOrWhiteSpace(req.Slug)) return BadRequest("Slug is required.");
-            if (string.IsNullOrWhiteSpace(req.OrthancLabel)) return BadRequest("OrthancLabel is required.");
+            if (string.IsNullOrWhiteSpace(req.OrthancBaseUrl)) return BadRequest("OrthancBaseUrl is required.");
 
             if (await _db.Institutions.AnyAsync(i => i.Slug == req.Slug, ct))
                 return Conflict($"Slug '{req.Slug}' is already taken.");
-            if (await _db.Institutions.AnyAsync(i => i.OrthancLabel == req.OrthancLabel, ct))
-                return Conflict($"OrthancLabel '{req.OrthancLabel}' is already taken.");
 
             var inst = new Institution
             {
                 Id = Guid.NewGuid(),
                 Name = req.Name.Trim(),
                 Slug = req.Slug.Trim().ToLowerInvariant(),
-                OrthancLabel = req.OrthancLabel.Trim().ToLowerInvariant(),
+                OrthancBaseUrl = req.OrthancBaseUrl.Trim(),
                 IsActive = true,
                 CreatedAtUtc = DateTime.UtcNow
             };
@@ -93,6 +92,7 @@ namespace Sitim.Api.Controllers
             if (inst is null) return NotFound();
 
             inst.Name = req.Name.Trim();
+            inst.OrthancBaseUrl = req.OrthancBaseUrl.Trim();
             inst.IsActive = req.IsActive;
 
             await _db.SaveChangesAsync(ct);
@@ -100,6 +100,6 @@ namespace Sitim.Api.Controllers
         }
 
         private static InstitutionDto ToDto(Institution i) =>
-            new(i.Id, i.Name, i.Slug, i.OrthancLabel, i.IsActive, i.CreatedAtUtc);
+            new(i.Id, i.Name, i.Slug, i.OrthancBaseUrl, i.IsActive, i.CreatedAtUtc);
     }
 }

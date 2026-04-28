@@ -1,9 +1,11 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject SitimAuthStateProvider AuthProvider
 @inject NavigationManager NavigationManager
 @inject DialogService DialogService
 @inject NotificationService NotificationService
 @inject AuthTokenStore TokenStore
+@inject SitimApiClient Api
 
 <RadzenComponents />
 
@@ -58,7 +60,7 @@
                         <RadzenPanelMenuItem Text="Import studii" Icon="cloud_upload" Path="import" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Analize" Icon="science" Path="analyses" />
+                        <RadzenPanelMenuItem Text="Analize AI" Icon="analytics" Path="ai-analyses" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin">
                         <RadzenPanelMenuItem Text="Utilizatori" Icon="group" Path="users" />
@@ -68,6 +70,12 @@
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin">
                         <RadzenPanelMenuItem Text="Instituții" Icon="business" Path="institutions" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin,Admin">
+                        <RadzenPanelMenuItem Text="Modele AI" Icon="psychology" Path="ai-models" />
+                    </AuthorizeView>
+                    <AuthorizeView Roles="SuperAdmin">
+                        <RadzenPanelMenuItem Text="@GetFederatedLearningMenuText()" Icon="hub" Path="federated-learning" />
                     </AuthorizeView>
                 </RadzenPanelMenu>
             </RadzenSidebar>
@@ -80,6 +88,9 @@
 
 @code {
     bool sidebarExpanded = false;
+    private int _activeFlSessions;
+    private System.Timers.Timer? _flBadgeRefreshTimer;
+    private bool _flBadgeInitialized;
 
     void SidebarToggleClick()
     {
@@ -112,5 +123,50 @@
     {
         await AuthProvider.LogoutAsync();
         NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !TokenStore.IsSuperAdmin || _flBadgeInitialized)
+            return;
+
+        _flBadgeInitialized = true;
+        await RefreshFederatedLearningBadgeAsync();
+        StartFederatedLearningBadgeRefresh();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshFederatedLearningBadgeAsync()
+    {
+        var sessions = await Api.GetFLSessionsAsync();
+        _activeFlSessions = sessions.Count(s => s.Status is "Pending" or "Running");
+    }
+
+    private void StartFederatedLearningBadgeRefresh()
+    {
+        _flBadgeRefreshTimer = new System.Timers.Timer(15000);
+        _flBadgeRefreshTimer.Elapsed += (_, _) =>
+        {
+            if (!TokenStore.IsSuperAdmin)
+                return;
+
+            _ = InvokeAsync(async () =>
+            {
+                await RefreshFederatedLearningBadgeAsync();
+                StateHasChanged();
+            });
+        };
+        _flBadgeRefreshTimer.AutoReset = true;
+        _flBadgeRefreshTimer.Start();
+    }
+
+    private string GetFederatedLearningMenuText() =>
+        _activeFlSessions > 0
+            ? $"Federated Learning ({_activeFlSessions})"
+            : "Federated Learning";
+
+    public void Dispose()
+    {
+        _flBadgeRefreshTimer?.Dispose();
     }
 }
