@@ -257,6 +257,16 @@ public class AIInferenceService : IAIInferenceService
             orthancStudyId,
             cancellationToken);
 
+        /*// DEBUG: Save extracted frames to disk for visual inspection
+        var debugDir = Path.Combine(Path.GetTempPath(), "sitim-debug-frames");
+        Directory.CreateDirectory(debugDir);
+        for (int i = 0; i < selectedFrames.Count; i++)
+        {
+            var path = Path.Combine(debugDir, $"frame_{Guid.NewGuid():N}_{i}.png");
+            await File.WriteAllBytesAsync(path, selectedFrames[i], cancellationToken);
+            _logger.LogWarning("DEBUG frame saved: {Path}", path);
+        }*/
+
         var outputs = new List<InferenceOutput>(selectedFrames.Count);
         foreach (var frameBytes in selectedFrames)
         {
@@ -334,14 +344,31 @@ public class AIInferenceService : IAIInferenceService
     {
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
 
-        var dicomEntries = archive.Entries
-            .Where(e => e.Name.EndsWith(".dcm", StringComparison.OrdinalIgnoreCase))
+        var allEntries = archive.Entries.ToList();
+        _logger.LogInformation(
+            "Archive contains {TotalEntries} entries: {EntryNames}",
+            allEntries.Count,
+            string.Join("; ", allEntries.Take(30).Select(e => e.FullName)));
+
+        // Orthanc stores DICOM instances without file extension (e.g. StudyUID/SeriesUID/InstanceUID).
+        // Accept both .dcm files and extension-less entries so both Orthanc and third-party archives work.
+        var dicomEntries = allEntries
+            .Where(e => e.Name.EndsWith(".dcm", StringComparison.OrdinalIgnoreCase)
+                     || !Path.HasExtension(e.Name))
             .OrderBy(e => e.FullName, StringComparer.OrdinalIgnoreCase)
             .Take(MaxDicomInstancesToInspect)
             .ToList();
 
         if (dicomEntries.Count == 0)
+        {
+            _logger.LogError(
+                "No DICOM entries found in archive. {TotalEntries} total entries with names: {EntryNames}",
+                allEntries.Count,
+                string.Join("; ", allEntries.Select(e => e.FullName)));
             return [];
+        }
+
+        _logger.LogInformation("Selected {Count} candidate entries for DICOM parsing.", dicomEntries.Count);
 
         var candidates = new List<FrameCandidate>();
         foreach (var dicomEntry in dicomEntries)
@@ -358,7 +385,7 @@ public class AIInferenceService : IAIInferenceService
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Skipping invalid DICOM entry {EntryName}", dicomEntry.FullName);
+                _logger.LogError(ex, "Skipping invalid DICOM entry {EntryName}", dicomEntry.FullName);
             }
 
             if (dicomFile is null)
@@ -369,8 +396,9 @@ public class AIInferenceService : IAIInferenceService
             {
                 pixelData = DicomPixelData.Create(dicomFile.Dataset);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "DicomPixelData.Create failed for entry {EntryName}, skipping.", dicomEntry.FullName);
                 continue;
             }
 
@@ -384,7 +412,7 @@ public class AIInferenceService : IAIInferenceService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(
+                    _logger.LogError(
                         ex,
                         "Skipping frame {FrameIndex} from entry {EntryName} due to extraction error.",
                         frameIndex,
@@ -459,75 +487,122 @@ public class AIInferenceService : IAIInferenceService
     {
         var dataset = dicomFile.Dataset;
 
-        var pixelData = DicomPixelData.Create(dataset);
-        if (pixelData is null)
-            throw new InvalidOperationException("No pixel data found in DICOM file");
-
-        var safeFrameIndex = Math.Clamp(frameIndex, 0, Math.Max(0, pixelData.NumberOfFrames - 1));
-        var frame = pixelData.GetFrame(safeFrameIndex);
-        if (frame == null || frame.Data.Length == 0)
-            throw new InvalidOperationException("Failed to extract frame data");
-
-        int rows = dataset.GetSingleValue<int>(DicomTag.Rows);
-        int columns = dataset.GetSingleValue<int>(DicomTag.Columns);
-        int samplesPerPixel = dataset.GetSingleValue<int>(DicomTag.SamplesPerPixel);
-        int bitsAllocated = dataset.GetSingleValue<int>(DicomTag.BitsAllocated);
-        int bitsStored = dataset.GetSingleValue<int>(DicomTag.BitsStored);
-        int highBit = dataset.GetSingleValue<int>(DicomTag.HighBit);
-
         _logger.LogInformation(
-            "DICOM frame extraction - Rows: {Rows}, Columns: {Columns}, SamplesPerPixel: {Samples}, BitsAllocated: {Bits}, FrameIndex: {FrameIndex}",
-            rows, columns, samplesPerPixel, bitsAllocated, safeFrameIndex);
+            "Extracting frame {FrameIndex}: TransferSyntax={TransferSyntaxName} (UID={TransferSyntaxUid}), IsEncapsulated={IsEncapsulated}",
+            frameIndex,
+            dataset.InternalTransferSyntax.UID.Name,
+            dataset.InternalTransferSyntax.UID.UID,
+            dataset.InternalTransferSyntax.IsEncapsulated);
 
-        using var image = new Image<Rgb24>(columns, rows);
-
-        byte shift = (byte)(highBit - bitsStored + 1);
-        int pixelIndex = 0;
-        for (int y = 0; y < rows; y++)
+        // Decompress if needed (handles JPEG, JPEG-LS, JPEG2000 transfer syntaxes)
+        if (dataset.InternalTransferSyntax.IsEncapsulated)
         {
-            for (int x = 0; x < columns; x++)
-            {
-                byte value = 0;
-
-                if (bitsAllocated == 8 && samplesPerPixel >= 3)
-                {
-                    if (pixelIndex + 2 < frame.Data.Length)
-                    {
-                        var r = frame.Data[pixelIndex++];
-                        var g = frame.Data[pixelIndex++];
-                        var b = frame.Data[pixelIndex++];
-                        image[x, y] = new Rgb24(r, g, b);
-                        continue;
-                    }
-                }
-                else if (bitsAllocated == 8)
-                {
-                    if (pixelIndex < frame.Data.Length)
-                        value = frame.Data[pixelIndex++];
-                }
-                else if (bitsAllocated == 16)
-                {
-                    if (pixelIndex + 1 < frame.Data.Length)
-                    {
-                        ushort pixelValue = BitConverter.ToUInt16(frame.Data, pixelIndex);
-                        pixelIndex += 2;
-
-                        if (bitsStored < 16)
-                            pixelValue = (ushort)(pixelValue >> shift);
-
-                        value = (byte)(pixelValue >> 8);
-                    }
-                }
-
-                var pixel = new Rgb24(value, value, value);
-                image[x, y] = pixel;
-            }
+            var transcoder = new DicomTranscoder(
+                dataset.InternalTransferSyntax,
+                DicomTransferSyntax.ExplicitVRLittleEndian);
+            dicomFile = transcoder.Transcode(dicomFile);
+            dataset = dicomFile.Dataset;
         }
 
+        var pixelData = DicomPixelData.Create(dataset);
+        var totalFrames = Math.Max(1, pixelData.NumberOfFrames);
+        var safeFrameIndex = Math.Clamp(frameIndex, 0, totalFrames - 1);
+
+        var rows = dataset.GetSingleValue<int>(DicomTag.Rows);
+        var columns = dataset.GetSingleValue<int>(DicomTag.Columns);
+        var samplesPerPixel = dataset.GetSingleValueOrDefault(DicomTag.SamplesPerPixel, (ushort)1);
+        var bitsAllocated = dataset.GetSingleValueOrDefault(DicomTag.BitsAllocated, (ushort)8);
+        var bitsStored = dataset.GetSingleValueOrDefault(DicomTag.BitsStored, (ushort)8);
+        var photometric = dataset.GetSingleValueOrDefault(DicomTag.PhotometricInterpretation, "MONOCHROME2").Trim();
+        var planarConfig = dataset.GetSingleValueOrDefault(DicomTag.PlanarConfiguration, (ushort)0);
+
+        _logger.LogInformation(
+            "DICOM frame info: {Rows}x{Cols}, Photometric={Photo}, SamplesPerPixel={Samples}, BitsAllocated={Bits}, PlanarConfig={Planar}, FrameIndex={FrameIndex}/{TotalFrames}",
+            rows, columns, photometric, samplesPerPixel, bitsAllocated, planarConfig, safeFrameIndex, totalFrames);
+
+        var rawBytes = pixelData.GetFrame(safeFrameIndex).Data;
+
+        using var image = BuildRgbImageFromRawPixels(rawBytes, rows, columns, samplesPerPixel, bitsAllocated, bitsStored, photometric, planarConfig);
         using var outputStream = new MemoryStream();
         image.SaveAsPng(outputStream);
         return outputStream.ToArray();
     }
+
+    // Constructs Image<Rgb24> from uncompressed DICOM pixel bytes.
+    // Handles RGB, YBR_FULL, MONOCHROME (8/16-bit), pixel-interleaved and band-interleaved.
+    private static Image<Rgb24> BuildRgbImageFromRawPixels(
+        byte[] raw, int rows, int cols,
+        int samplesPerPixel, int bitsAllocated, int bitsStored,
+        string photometric, int planarConfig)
+    {
+        var img = new Image<Rgb24>(cols, rows);
+        bool isColor = samplesPerPixel >= 3;
+        bool isYbr = photometric.StartsWith("YBR", StringComparison.OrdinalIgnoreCase);
+        bool is16bit = bitsAllocated == 16;
+        bool invertGray = photometric == "MONOCHROME1";
+
+        if (isColor && !is16bit)
+        {
+            int planeSize = rows * cols;
+            for (int y = 0; y < rows; y++)
+            {
+                for (int x = 0; x < cols; x++)
+                {
+                    byte c0, c1, c2;
+                    if (planarConfig == 0)
+                    {
+                        int offset = (y * cols + x) * 3;
+                        c0 = raw[offset]; c1 = raw[offset + 1]; c2 = raw[offset + 2];
+                    }
+                    else
+                    {
+                        int i = y * cols + x;
+                        c0 = raw[i]; c1 = raw[planeSize + i]; c2 = raw[planeSize * 2 + i];
+                    }
+
+                    if (isYbr)
+                    {
+                        // YBR_FULL → RGB per DICOM PS3.3 C.7.6.3.1.2
+                        double yD = c0, cbD = c1 - 128.0, crD = c2 - 128.0;
+                        c0 = DicomClamp(yD + 1.402 * crD);
+                        c1 = DicomClamp(yD - 0.344136 * cbD - 0.714136 * crD);
+                        c2 = DicomClamp(yD + 1.772 * cbD);
+                    }
+
+                    img[x, y] = new Rgb24(c0, c1, c2);
+                }
+            }
+        }
+        else
+        {
+            for (int y = 0; y < rows; y++)
+            {
+                for (int x = 0; x < cols; x++)
+                {
+                    byte gray;
+                    if (is16bit)
+                    {
+                        int offset = (y * cols + x) * 2;
+                        ushort v = (ushort)(raw[offset] | (raw[offset + 1] << 8));
+                        int maxVal = (1 << bitsStored) - 1;
+                        gray = maxVal > 0 ? (byte)Math.Min(255, v * 255 / maxVal) : (byte)0;
+                    }
+                    else
+                    {
+                        gray = raw[y * cols + x];
+                    }
+                    if (invertGray)
+                        gray = (byte)(255 - gray);
+                    img[x, y] = new Rgb24(gray, gray, gray);
+                }
+            }
+        }
+
+        return img;
+    }
+
+    private static byte DicomClamp(double value)
+        => (byte)Math.Clamp((int)Math.Round(value), 0, 255);
 
     private InferenceInput PreprocessImage(byte[] imageBytes, AIModel model)
     {

@@ -32,6 +32,10 @@
         </RadzenColumn>
     </RadzenRow>
 
+    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
+        Funcționalitatea FL este în dezvoltare. Pentru demo, sesiunea necesită clienți FL online și studii etichetate disponibile în fiecare instituție selectată.
+    </RadzenAlert>
+
     <RadzenCard>
         <RadzenStack Gap="0.5rem">
             <RadzenText Text="Clienți FL conectați (handshake instituție)" TextStyle="TextStyle.Body1" />
@@ -370,7 +374,7 @@
         "Pending" => BadgeStyle.Warning,
         "Running" => BadgeStyle.Info,
         "Completed" => BadgeStyle.Success,
-        "Stopped" => BadgeStyle.Danger,
+        "Stopped" => BadgeStyle.Warning,
         "Failed" => BadgeStyle.Danger,
         _ => BadgeStyle.Light
     };

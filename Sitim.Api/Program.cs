@@ -18,6 +18,11 @@ using Sitim.Infrastructure.Identity;
 using Sitim.Infrastructure.Orthanc;
 using Sitim.Infrastructure.Services;
 using System.Text;
+using FellowOakDicom;
+
+new DicomSetupBuilder()
+    .SkipValidation()
+    .Build();
 
 var builder = WebApplication.CreateBuilder(args);
 

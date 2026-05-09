@@ -85,7 +85,7 @@
             @if (importResult.OrthancStudyIds.Count > 0)
             {
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" class="rz-mt-3" JustifyContent="JustifyContent.Center">
-                    <RadzenButton Text="Mergi la Worklist" Icon="list_alt" ButtonStyle="ButtonStyle.Primary"
+                    <RadzenButton Text="Mergi la pagina principală" Icon="list_alt" ButtonStyle="ButtonStyle.Primary"
                                   Click="@(() => Navigation.NavigateTo("/"))" />
                     @if (importResult.OrthancStudyIds.Count == 1)
                     {

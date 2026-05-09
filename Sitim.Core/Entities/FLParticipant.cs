@@ -23,5 +23,6 @@ public enum FLParticipantStatus
     Accepted = 1,
     Training = 2,
     Completed = 3,
-    Failed = 4
+    Failed = 4,
+    Stopped = 5
 }

@@ -364,7 +364,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
         foreach (var participant in session.Participants)
         {
             if (participant.Status is FLParticipantStatus.Invited or FLParticipantStatus.Accepted or FLParticipantStatus.Training)
-                participant.Status = FLParticipantStatus.Failed;
+                participant.Status = FLParticipantStatus.Stopped;
             participant.LastHeartbeatUtc ??= DateTime.UtcNow;
         }
 
@@ -577,6 +577,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
             "accepted" => FLParticipantStatus.Accepted,
             "training" => FLParticipantStatus.Training,
             "completed" => FLParticipantStatus.Completed,
+            "stopped" => FLParticipantStatus.Stopped,
             "failed" => FLParticipantStatus.Failed,
             _ => FLParticipantStatus.Invited
         };
