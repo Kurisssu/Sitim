@@ -10,7 +10,7 @@
         // Common role bundles for [Authorize(Roles="...")]
         // SuperAdmin is included in all bundles – sees all data across tenants (no Query Filter applied).
         public const string AnyStaff = SuperAdmin + "," + Admin + "," + Doctor + "," + Technician;
-        public const string CanImport = SuperAdmin + "," + Admin + "," + Technician;
+        public const string CanImport = SuperAdmin + "," + Admin + "," + Doctor + "," + Technician;
         public const string CanAnalyze = SuperAdmin + "," + Admin + "," + Doctor + "," + Technician;
 
         // Platform-level operations (SuperAdmin only)

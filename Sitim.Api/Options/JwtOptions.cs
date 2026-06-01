@@ -14,6 +14,11 @@
         /// </summary>
         public string SigningKey { get; set; } = "CHANGE_ME_DEV_SIGNING_KEY_32_CHARS_MIN";
 
-        public int AccessTokenMinutes { get; set; } = 60;
+        /// <summary>
+        /// Lifetime of the access token. Default 15 minutes — pairs with a 7-day
+        /// refresh token so any compromised access token has a small blast radius
+        /// (max 15 min) while the user only has to re-login once a week.
+        /// </summary>
+        public int AccessTokenMinutes { get; set; } = 15;
     }
 }

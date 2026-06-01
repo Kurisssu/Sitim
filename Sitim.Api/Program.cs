@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,14 @@ using Sitim.Api.Security;
 using Sitim.Api.Services;
 using Sitim.Core.Options;
 using Sitim.Core.Services;
+using Sitim.Infrastructure.Auth;
 using Sitim.Infrastructure.Data;
+using Sitim.Infrastructure.Email;
 using Sitim.Infrastructure.Identity;
 using Sitim.Infrastructure.Orthanc;
 using Sitim.Infrastructure.Services;
 using System.Text;
+using System.Threading.RateLimiting;
 using FellowOakDicom;
 
 new DicomSetupBuilder()
@@ -62,6 +66,27 @@ builder.Services.AddControllers();
 // IHttpContextAccessor (needed by HttpContextTenantContext)
 builder.Services.AddHttpContextAccessor();
 
+// Rate limiting — anti-brute-force protection on sensitive auth endpoints.
+// Policies are attached on specific endpoints via [EnableRateLimiting("...")].
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Used by /api/auth/set-password — keeps an attacker who knows a UserId
+    // from grinding through tokens at line speed. 10 attempts / minute / IP.
+    options.AddPolicy("set-password", httpContext =>
+    {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true,
+        });
+    });
+});
+
 // Swagger (better for rapid manual testing than the minimal OpenAPI endpoint)
 
 builder.Services.AddEndpointsApiExplorer();
@@ -91,6 +116,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.Configure<OrthancOptions>(builder.Configuration.GetSection("Orthanc"));
 builder.Services.Configure<OhifOptions>(builder.Configuration.GetSection("Ohif"));
 builder.Services.Configure<FederatedLearningOptions>(builder.Configuration.GetSection(FederatedLearningOptions.SectionName));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 
 // Auth (JWT)
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
@@ -122,8 +148,21 @@ builder.Services.AddIdentityCore<ApplicationUser>(opt =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
+// Shorter invitation-token lifespan than the Identity default (24h):
+// invitations should be acted on quickly. Configurable via Smtp:InvitationLifetimeHours.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(opt =>
+{
+    var smtpSection = builder.Configuration.GetSection(SmtpOptions.SectionName);
+    var hours = smtpSection.GetValue<int?>(nameof(SmtpOptions.InvitationLifetimeHours)) ?? 2;
+    opt.TokenLifespan = TimeSpan.FromHours(Math.Clamp(hours, 1, 24));
+});
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IViewerTokenService, ViewerTokenService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddMemoryCache(); // for the institution-active cache
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.SectionName));
 builder.Services.AddHttpClient(FederatedLearningOptions.ControlPlaneHttpClientName, (sp, client) =>
 {
     var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FederatedLearningOptions>>().Value;
@@ -152,7 +191,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+// Authorization: every authenticated endpoint must also pass the institution-active
+// check. Anonymous endpoints (login/refresh/logout/set-password) carry [AllowAnonymous]
+// which bypasses this fallback by design.
+builder.Services.AddSingleton<IAuthorizationHandler, InstitutionActiveAuthorizationHandler>();
+builder.Services.AddAuthorization(opt =>
+{
+    opt.AddPolicy("InstitutionMustBeActive", p =>
+    {
+        p.RequireAuthenticatedUser();
+        p.AddRequirements(new InstitutionActiveRequirement());
+    });
+    opt.FallbackPolicy = opt.GetPolicy("InstitutionMustBeActive");
+});
 
 // Hangfire (durable background jobs)
 builder.Services.AddHangfire(cfg =>
@@ -272,6 +323,8 @@ app.UseCors("SitimWeb");
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseRateLimiter();
 if (app.Environment.IsDevelopment())
 {
     // Hangfire dashboard (DEV)

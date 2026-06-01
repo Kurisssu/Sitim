@@ -83,11 +83,9 @@
 </RadzenStack>
 
 @* Create dialog *@
-@if (_showCreateDialog)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;box-shadow:var(--rz-shadow-4);">
-            <RadzenText Text="Instituție nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
+<SitimModal Show="@_showCreateDialog" OnClose="@CloseDialogs">
+    <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;">
+        <RadzenText Text="Instituție nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
                 <RadzenFormField Text="Denumire *" Style="width:100%">
                     <ChildContent>
@@ -109,21 +107,36 @@
                         </RadzenText>
                     </Helper>
                 </RadzenFormField>
+                <RadzenRow>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="User Orthanc" Style="width:100%">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="_newOrthancUsername" Placeholder="ex: orthanc" Style="width:100%" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Parolă Orthanc" Style="width:100%">
+                            <ChildContent>
+                                <RadzenPassword @bind-Value="_newOrthancPassword" Placeholder="Lasă gol dacă fără autentificare" Style="width:100%" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
                     <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
                     <RadzenButton Text="Creare" ButtonStyle="ButtonStyle.Primary"
                                   Click="@CreateInstitution" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
-        </RadzenCard>
-    </div>
-}
+    </RadzenCard>
+</SitimModal>
 
 @* Edit dialog *@
-@if (_showEditDialog && _editTarget is not null)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+<SitimModal Show="@(_showEditDialog && _editTarget is not null)" OnClose="@CloseDialogs">
+    @if (_editTarget is not null)
+    {
+        <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;">
             <RadzenText Text="Editare instituție" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
                 <RadzenFormField Text="Denumire *" Style="width:100%">
@@ -136,6 +149,22 @@
                         <RadzenTextBox @bind-Value="_editOrthancBaseUrl" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
+                <RadzenRow>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="User Orthanc" Style="width:100%">
+                            <ChildContent>
+                                <RadzenTextBox @bind-Value="_editOrthancUsername" Placeholder="Gol = fără autentificare" Style="width:100%" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                    <RadzenColumn Size="12" SizeMD="6">
+                        <RadzenFormField Text="Parolă Orthanc" Style="width:100%">
+                            <ChildContent>
+                                <RadzenPassword @bind-Value="_editOrthancPassword" Placeholder="Gol = păstrează parola actuală" Style="width:100%" />
+                            </ChildContent>
+                        </RadzenFormField>
+                    </RadzenColumn>
+                </RadzenRow>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenCheckBox @bind-Value="_editIsActive" Name="isActive" />
                     <RadzenLabel Text="Activ" Component="isActive" />
@@ -147,11 +176,11 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
-    </div>
-}
+    }
+</SitimModal>
 
 @code {
-    private List<SitimApiClient.InstitutionResult> _institutions = [];
+    private List<InstitutionResult> _institutions = [];
     private bool _loading = true;
     private bool _saving = false;
 
@@ -160,12 +189,16 @@
     private string _newName = "";
     private string _newSlug = "";
     private string _newOrthancBaseUrl = "";
+    private string _newOrthancUsername = "";
+    private string _newOrthancPassword = "";
 
     // Edit dialog state
     private bool _showEditDialog = false;
-    private SitimApiClient.InstitutionResult? _editTarget = null;
+    private InstitutionResult? _editTarget = null;
     private string _editName = "";
     private string _editOrthancBaseUrl = "";
+    private string _editOrthancUsername = "";
+    private string _editOrthancPassword = "";
     private bool _editIsActive = true;
 
     protected override async Task OnInitializedAsync()
@@ -182,16 +215,18 @@
 
     private void OpenCreateDialog()
     {
-        _newName = _newSlug = _newOrthancBaseUrl = "";
+        _newName = _newSlug = _newOrthancBaseUrl = _newOrthancUsername = _newOrthancPassword = "";
         _showCreateDialog = true;
         _showEditDialog = false;
     }
 
-    private void OpenEditDialog(SitimApiClient.InstitutionResult inst)
+    private void OpenEditDialog(InstitutionResult inst)
     {
         _editTarget = inst;
         _editName = inst.Name;
         _editOrthancBaseUrl = inst.OrthancBaseUrl;
+        _editOrthancUsername = inst.OrthancUsername ?? "";
+        _editOrthancPassword = "";
         _editIsActive = inst.IsActive;
         _showEditDialog = true;
         _showCreateDialog = false;
@@ -213,7 +248,9 @@
         }
 
         _saving = true;
-        var result = await Api.CreateInstitutionAsync(_newName, _newSlug, _newOrthancBaseUrl);
+        var result = await Api.CreateInstitutionAsync(_newName, _newSlug, _newOrthancBaseUrl,
+            string.IsNullOrWhiteSpace(_newOrthancUsername) ? null : _newOrthancUsername,
+            string.IsNullOrWhiteSpace(_newOrthancPassword) ? null : _newOrthancPassword);
         _saving = false;
 
         if (result is not null)
@@ -234,7 +271,9 @@
             return;
 
         _saving = true;
-        var result = await Api.UpdateInstitutionAsync(_editTarget.Id, _editName, _editOrthancBaseUrl, _editIsActive);
+        var result = await Api.UpdateInstitutionAsync(_editTarget.Id, _editName, _editOrthancBaseUrl, _editIsActive,
+            string.IsNullOrWhiteSpace(_editOrthancUsername) ? null : _editOrthancUsername,
+            string.IsNullOrWhiteSpace(_editOrthancPassword) ? null : _editOrthancPassword);
         _saving = false;
 
         if (result is not null)

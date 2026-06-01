@@ -606,42 +606,127 @@ public class AIInferenceService : IAIInferenceService
 
     private InferenceInput PreprocessImage(byte[] imageBytes, AIModel model)
     {
-        // Get preprocessing parameters from model metadata
-        // Defaults ensure backward compatibility with existing models
-        var meanJson = model.PreprocessingMean ?? "[0.485, 0.456, 0.406]";
-        var stdJson = model.PreprocessingStd ?? "[0.229, 0.224, 0.225]";
         var imageSize = model.PreprocessingImageSize ?? 512;
+        // Normalize method name: treat null/empty/any "imagenet*" variant as "imagenet_norm"
+        var rawMethod = model.PreprocessingMethod?.Trim().ToLowerInvariant() ?? "";
+        var method = (rawMethod == "" || rawMethod.StartsWith("imagenet")) ? "imagenet_norm" : rawMethod;
 
-        var mean = JsonSerializer.Deserialize<float[]>(meanJson) ?? [0.485f, 0.456f, 0.406f];
-        var std = JsonSerializer.Deserialize<float[]>(stdJson) ?? [0.229f, 0.224f, 0.225f];
-
-        if (mean.Length < 3 || std.Length < 3)
-            throw new InvalidOperationException($"Invalid preprocessing metadata for model '{model.Name}'. Mean/Std must have 3 channels.");
+        // Detect expected channel count from OnnxInputSpec shape [batch, C, H, W]
+        var inputSpecs = OnnxTensorSpecHandler.ParseSpecFromJson(model.OnnxInputSpec);
+        var channels = 3;
+        if (inputSpecs.Count > 0 && inputSpecs[0].Shape.Length >= 2 && inputSpecs[0].Shape[1] == 1)
+            channels = 1;
 
         using var ms = new MemoryStream(imageBytes);
         using var image = Image.Load<Rgb24>(ms);
-
-        // Resize to model's expected size
         image.Mutate(x => x.Resize(imageSize, imageSize));
 
-        // Convert to tensor [1, 3, imageSize, imageSize]
-        var tensorShape = new[] { 1, 3, imageSize, imageSize };
+        return channels == 1
+            ? BuildGrayscaleTensor(image, imageSize, method)
+            : BuildRgbTensor(image, imageSize, method, model);
+    }
+
+    private static InferenceInput BuildRgbTensor(Image<Rgb24> image, int size, string method, AIModel model)
+    {
+        var tensorShape = new[] { 1, 3, size, size };
         var tensor = new DenseTensor<float>(tensorShape);
 
-        for (int y = 0; y < imageSize; y++)
+        if (method is "minmax" or "zscore")
         {
-            for (int x = 0; x < imageSize; x++)
+            var r = new float[size * size];
+            var g = new float[size * size];
+            var b = new float[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    var p = image[x, y];
+                    int i = y * size + x;
+                    r[i] = p.R / 255f; g[i] = p.G / 255f; b[i] = p.B / 255f;
+                }
+            if (method == "minmax") { NormalizeMinMax(r); NormalizeMinMax(g); NormalizeMinMax(b); }
+            else                    { NormalizeZScore(r); NormalizeZScore(g); NormalizeZScore(b); }
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                { int i = y * size + x; tensor[0,0,y,x] = r[i]; tensor[0,1,y,x] = g[i]; tensor[0,2,y,x] = b[i]; }
+        }
+        else
+        {
+            float[]? mean = null, std = null;
+            if (method == "imagenet_norm")
             {
-                var pixel = image[x, y];
-
-                // Normalize each channel [0, 255] -> [0, 1] -> standardize
-                tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0]; // R
-                tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1]; // G
-                tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2]; // B
+                mean = JsonSerializer.Deserialize<float[]>(model.PreprocessingMean ?? "[0.485,0.456,0.406]") ?? [0.485f, 0.456f, 0.406f];
+                std  = JsonSerializer.Deserialize<float[]>(model.PreprocessingStd  ?? "[0.229,0.224,0.225]") ?? [0.229f, 0.224f, 0.225f];
+                if (mean.Length < 3 || std.Length < 3)
+                    throw new InvalidOperationException($"Model '{model.Name}': PreprocessingMean/Std must have 3 values.");
             }
+
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    var p = image[x, y];
+                    if (method == "imagenet_norm")
+                    {
+                        tensor[0,0,y,x] = (p.R / 255f - mean![0]) / std![0];
+                        tensor[0,1,y,x] = (p.G / 255f - mean![1]) / std![1];
+                        tensor[0,2,y,x] = (p.B / 255f - mean![2]) / std![2];
+                    }
+                    else // "none"
+                    {
+                        tensor[0,0,y,x] = p.R / 255f;
+                        tensor[0,1,y,x] = p.G / 255f;
+                        tensor[0,2,y,x] = p.B / 255f;
+                    }
+                }
         }
 
         return new InferenceInput(tensor.ToArray(), tensorShape);
+    }
+
+    private static InferenceInput BuildGrayscaleTensor(Image<Rgb24> image, int size, string method)
+    {
+        var tensorShape = new[] { 1, 1, size, size };
+        var tensor = new DenseTensor<float>(tensorShape);
+
+        var values = new float[size * size];
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                var p = image[x, y];
+                values[y * size + x] = (0.299f * p.R + 0.587f * p.G + 0.114f * p.B) / 255f;
+            }
+
+        switch (method)
+        {
+            case "minmax":       NormalizeMinMax(values); break;
+            case "zscore":       NormalizeZScore(values); break;
+            case "imagenet_norm":
+                // grayscale ImageNet equivalent: mean≈0.449, std≈0.226
+                for (int i = 0; i < values.Length; i++) values[i] = (values[i] - 0.449f) / 0.226f;
+                break;
+            // "none" or unknown → already [0,1], no further processing
+        }
+
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+                tensor[0, 0, y, x] = values[y * size + x];
+
+        return new InferenceInput(tensor.ToArray(), tensorShape);
+    }
+
+    private static void NormalizeMinMax(float[] values)
+    {
+        var min = values.Min(); var max = values.Max();
+        var range = max - min;
+        if (range < 1e-6f) return;
+        for (int i = 0; i < values.Length; i++) values[i] = (values[i] - min) / range;
+    }
+
+    private static void NormalizeZScore(float[] values)
+    {
+        var mean = values.Average();
+        var std = MathF.Sqrt(values.Average(v => (v - mean) * (v - mean)));
+        if (std < 1e-6f) return;
+        for (int i = 0; i < values.Length; i++) values[i] = (values[i] - mean) / std;
     }
 
     private sealed record FrameCandidate(byte[] ImageBytes, double Score);

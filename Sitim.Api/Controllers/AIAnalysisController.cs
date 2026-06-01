@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sitim.Api.Services;
+using Sitim.Core.Contracts.AI;
 using Sitim.Core.Entities;
 using Sitim.Core.Services;
 using Sitim.Infrastructure.Data;
@@ -776,9 +777,6 @@ public class AIAnalysisController : ControllerBase
     }
 }
 
-// DTOs
-public record AnalyzeStudyRequest(Guid StudyId, Guid? ModelId = null);
-
 public record UploadModelRequest
 {
     public IFormFile ModelFile { get; set; } = null!;
@@ -817,84 +815,3 @@ public record UploadModelRequest
     // Output configuration
     public int? NumOutputClasses { get; set; }
 }
-
-public record AIModelDto(
-    Guid Id,
-    string Name,
-    string? Description,
-    string Task,
-    string Version,
-    string StorageFileName,
-    decimal? Accuracy,
-    bool IsActive,
-    int? NumClasses,
-    string? InputShape,
-    string? TrainingSource,
-    DateTime CreatedAt,
-    // Clinical metadata
-    string? TargetModality = null,
-    string? ClassNames = null,
-    string? ClassSeverities = null,
-    string? ClassRecommendations = null,
-    string? SupportedRegions = null,
-    string? DetectablePathologies = null,
-    // Preprocessing (stored as JSON strings)
-    string? PreprocessingMethod = null,
-    string? PreprocessingMean = null,
-    string? PreprocessingStd = null,
-    int? PreprocessingImageSize = null,
-    // ONNX specifications
-    string? OnnxInputSpec = null,
-    string? OnnxOutputSpec = null
-);
-
-// Lightweight DTO for model selection UI
-public record AIModelSelectionDto(
-    Guid Id,
-    string Name,
-    string Version,
-    string Task,
-    decimal? Accuracy,
-    string? TargetModality,
-    string? Description
-);
-
-// Hangfire Job DTOs
-public record StartAnalysisResponseDto(
-    Guid JobId,
-    string Status,
-    DateTime CreatedAt
-);
-
-public record AIAnalysisJobStatusDto(
-    Guid Id,
-    Guid StudyId,
-    string OrthancStudyId,
-    string Status,
-    DateTime CreatedAt,
-    DateTime? StartedAt,
-    DateTime? FinishedAt,
-    string? ModelName,
-    int? PredictionClass,
-    decimal? Confidence,
-    int? ProcessingTimeMs,
-    string? ErrorMessage
-);
-
-public record AIAnalysisJobListItemDto(
-    Guid Id,
-    Guid StudyId,
-    string OrthancStudyId,
-    string? PatientName,
-    string? StudyDate,
-    IReadOnlyList<string> ModalitiesInStudy,
-    string Status,
-    DateTime CreatedAt,
-    DateTime? StartedAt,
-    DateTime? FinishedAt,
-    string? ModelName,
-    int? PredictionClass,
-    decimal? Confidence,
-    int? ProcessingTimeMs,
-    string? ErrorMessage
-);

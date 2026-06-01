@@ -1,28 +1,12 @@
-using System.Net.Http.Headers;
+// This file is intentionally a stub. The handler approach was abandoned because
+// HttpClientFactory caches DelegatingHandlers across Blazor Server circuits (per
+// HandlerLifetime, default 2 min), which causes a scoped AuthTokenStore captured at
+// handler construction to leak between circuits and serve stale tokens.
+//
+// Token attachment now lives in SitimApiClient.AttachToken() (correctly scoped per
+// circuit), and proactive refresh lives in SitimAuthStateProvider via System.Timers
+// (scheduled at login and after cookie restore).
+//
+// Keeping this empty file so any leftover references don't break the build.
 
 namespace Sitim.Web.Services;
-
-/// <summary>
-/// DelegatingHandler that attaches the JWT Bearer token to every outgoing HTTP request.
-/// Token is read from <see cref="AuthTokenStore"/>.
-/// </summary>
-public sealed class AuthTokenHandler : DelegatingHandler
-{
-    private readonly AuthTokenStore _store;
-
-    public AuthTokenHandler(AuthTokenStore store)
-    {
-        _store = store;
-    }
-
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        var token = _store.Token;
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
-
-        return await base.SendAsync(request, cancellationToken);
-    }
-}

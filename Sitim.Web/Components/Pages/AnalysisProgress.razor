@@ -5,7 +5,7 @@
 @inject NotificationService Notification
 @using System.Timers
 
-<PageTitle>Progres Analiză — SITIM</PageTitle>
+<PageTitle>Progresul analizei - SITIM</PageTitle>
 
 <RadzenStack Gap="1rem">
     @if (isLoading)
@@ -25,7 +25,7 @@
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
                                   Click="@NavigateToStudy" title="Înapoi la studiu" />
-                    <RadzenText Text="Progres Analiză AI" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                    <RadzenText Text="Progresul analizei" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn>
@@ -71,8 +71,11 @@
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenCard>
                     <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="Timp procesare (ms)" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                        <RadzenText Text="@(job.ProcessingTimeMs?.ToString() ?? "—")" TextStyle="TextStyle.Body1" />
+                        <RadzenText Text="Timp procesare" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <LiveDurationTimer StartedAtUtc="@job.StartedAt"
+                                           FinishedAtUtc="@job.FinishedAt"
+                                           ProcessingTimeMs="@job.ProcessingTimeMs"
+                                           CssClass="rz-text-body1 sitim-duration-mono" />
                     </RadzenStack>
                 </RadzenCard>
             </RadzenColumn>
@@ -104,9 +107,8 @@
         {
             <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
                 <RadzenColumn Size="12" SizeMD="6" class="rz-text-align-end">
-                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem">
-                        <RadzenCheckBox @bind-Value="autoRefresh" TValue="bool" />
-                        <RadzenText Text="Auto-refresh (5 sec)" TextStyle="TextStyle.Body2" />
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.75rem" AlignItems="AlignItems.Center">
+                        <RadzenText Text="Actualizare automată la 5 sec" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                                       Click="@RefreshStatus" />
                     </RadzenStack>
@@ -121,9 +123,8 @@
     public string JobIdStr { get; set; } = "";
 
     private Guid JobId;
-    private SitimApiClient.AIAnalysisJobStatusDto? job;
+    private AIAnalysisJobStatusDto? job;
     private bool isLoading = true;
-    private bool autoRefresh = true;
     private Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
@@ -164,7 +165,9 @@
         refreshTimer = new Timer(5000);
         refreshTimer.Elapsed += (s, e) =>
         {
-            if (!autoRefresh || (job?.Status != "Queued" && job?.Status != "Running"))
+            // Auto-refresh runs unconditionally for active jobs.
+            // Finished jobs are skipped to avoid hammering the API for static data.
+            if (job?.Status != "Queued" && job?.Status != "Running")
                 return;
 
             _ = InvokeAsync(RefreshStatus);

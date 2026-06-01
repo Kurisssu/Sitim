@@ -27,6 +27,7 @@ namespace Sitim.Infrastructure.Data
         public DbSet<FLRound> FLRounds => Set<FLRound>();
         public DbSet<FLParticipant> FLParticipants => Set<FLParticipant>();
         public DbSet<FLModelUpdate> FLModelUpdates => Set<FLModelUpdate>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,6 +41,8 @@ namespace Sitim.Infrastructure.Data
                 b.Property(x => x.Slug).HasMaxLength(64).IsRequired();
                 b.HasIndex(x => x.Slug).IsUnique();
                 b.Property(x => x.OrthancBaseUrl).HasMaxLength(256).IsRequired();
+                b.Property(x => x.OrthancUsername).HasMaxLength(128);
+                b.Property(x => x.OrthancPassword).HasMaxLength(256);
                 b.Property(x => x.IsActive).HasDefaultValue(true);
                 b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc");
             });
@@ -137,8 +140,8 @@ namespace Sitim.Infrastructure.Data
                 b.HasOne(x => x.Study)
                     .WithMany()
                     .HasForeignKey(x => x.StudyId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                
+                    .OnDelete(DeleteBehavior.Cascade);
+
                 b.HasOne(x => x.Model)
                     .WithMany(m => m.AnalysisJobs)
                     .HasForeignKey(x => x.ModelId)
@@ -248,6 +251,30 @@ namespace Sitim.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 b.HasIndex(x => new { x.SessionId, x.InstitutionId, x.RoundNumber });
+            });
+
+            modelBuilder.Entity<RefreshToken>(b =>
+            {
+                b.ToTable("refresh_tokens");
+                b.HasKey(x => x.Id);
+
+                b.Property(x => x.TokenHash).HasColumnName("token_hash").HasMaxLength(128).IsRequired();
+                b.HasIndex(x => x.TokenHash).IsUnique();
+
+                b.Property(x => x.UserId).HasColumnName("user_id").IsRequired();
+                b.HasIndex(x => x.UserId);
+
+                b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
+                b.Property(x => x.ExpiresAtUtc).HasColumnName("expires_at_utc").IsRequired();
+                b.Property(x => x.RevokedAtUtc).HasColumnName("revoked_at_utc");
+                b.Property(x => x.RevokedReason).HasColumnName("revoked_reason").HasMaxLength(64);
+                b.Property(x => x.ReplacedByTokenHash).HasColumnName("replaced_by_token_hash").HasMaxLength(128);
+
+                b.Property(x => x.CreatedByIp).HasColumnName("created_by_ip").HasMaxLength(64);
+                b.Property(x => x.UserAgent).HasColumnName("user_agent").HasMaxLength(256);
+
+                // Ignore the computed property — EF would try to map it otherwise.
+                b.Ignore(x => x.IsActive);
             });
         }
     }

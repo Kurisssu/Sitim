@@ -309,7 +309,24 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
             && !string.IsNullOrWhiteSpace(refreshTarget.ExternalSessionId)
             && (refreshTarget.Status == FLSessionStatus.Pending || refreshTarget.Status == FLSessionStatus.Running))
         {
-            await RefreshSessionFromControlPlaneAsync(sessionId, refreshTarget.ExternalSessionId!, cancellationToken);
+            try
+            {
+                await RefreshSessionFromControlPlaneAsync(sessionId, refreshTarget.ExternalSessionId!, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Concurrency conflict refreshing FL session {SessionId} on read — returning cached DB state.",
+                    sessionId);
+                _db.ChangeTracker.Clear();
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("concurrent updates"))
+            {
+                _logger.LogWarning(ex,
+                    "FL session {SessionId} refresh exhausted retries — returning cached DB state.",
+                    sessionId);
+                _db.ChangeTracker.Clear();
+            }
         }
 
         return await _db.FLSessions
@@ -509,7 +526,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
         session.OutputModelPath = externalState.OutputModelPath;
     }
 
-    private static void ApplyRoundState(FLSession session, IReadOnlyList<ExternalRoundStatusDto> rounds)
+    private void ApplyRoundState(FLSession session, IReadOnlyList<ExternalRoundStatusDto> rounds)
     {
         foreach (var round in rounds)
         {
@@ -525,6 +542,11 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
                     SessionId = session.Id,
                     RoundNumber = round.RoundNumber
                 };
+                // Explicitly mark as Added: when the parent session is Unchanged
+                // and we attach a new dependent with a pre-generated Guid key, EF Core
+                // defaults its state to Unchanged, which produces an UPDATE that
+                // affects 0 rows and throws DbUpdateConcurrencyException at SaveChanges.
+                _db.FLRounds.Add(existing);
                 session.Rounds.Add(existing);
             }
 
@@ -534,7 +556,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
         }
     }
 
-    private static void ApplyParticipantState(FLSession session, IReadOnlyList<ExternalParticipantStatusDto> participants)
+    private void ApplyParticipantState(FLSession session, IReadOnlyList<ExternalParticipantStatusDto> participants)
     {
         foreach (var participantState in participants)
         {
@@ -551,6 +573,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
                     InstitutionId = institutionId,
                     Status = FLParticipantStatus.Invited
                 };
+                _db.FLParticipants.Add(existing);
                 session.Participants.Add(existing);
             }
 

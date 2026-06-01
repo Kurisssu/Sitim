@@ -67,13 +67,7 @@
                                         <RadzenText Text="@($"v{model.Version}")" TextStyle="TextStyle.Caption" />
                                     </RadzenStack>
                                 </RadzenColumn>
-                                <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Tip analiză" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                                    <div>
-                                        <RadzenBadge Text="@GetTaskDisplayName(model.Task)" BadgeStyle="BadgeStyle.Info" Variant="Variant.Flat" />
-                                    </div>
-                                </RadzenColumn>
-                                <RadzenColumn Size="12" SizeMD="3">
+                                <RadzenColumn Size="12" SizeMD="5">
                                     <RadzenText Text="Descriere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(string.IsNullOrWhiteSpace(model.Description) ? "—" : model.Description)" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
@@ -127,7 +121,7 @@
 </RadzenStack>
 
 @code {
-    private List<SitimApiClient.AIModelDto>? models;
+    private List<AIModelDto>? models;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -160,12 +154,12 @@
             {
                 { "OnUploadComplete", EventCallback.Factory.Create(this, LoadModels) }
             },
-            new DialogOptions 
-            { 
+            new DialogOptions
+            {
                 Width = "700px",
                 Height = "auto",
-                Resizable = true,
-                Draggable = true
+                Resizable = false,
+                Draggable = false
             }
         );
 
@@ -175,30 +169,22 @@
         }
     }
 
-    private async Task ShowModelDetails(SitimApiClient.AIModelDto model)
+    private async Task ShowModelDetails(AIModelDto model)
     {
-        var details = $@"
-Model: {model.Name} v{model.Version}
-Tip analiză: {GetTaskDisplayName(model.Task)}
-Acuratețe: {(model.Accuracy.HasValue ? $"{model.Accuracy.Value:P2}" : "N/A")}
-Clase: {model.NumClasses ?? 0}
-Dimensiune input: {model.InputShape ?? "N/A"}
-Sursă antrenare: {model.TrainingSource ?? "N/A"}
-Fișier stocare: {model.StorageFileName}
-Data încărcării: {model.CreatedAt:dd.MM.yyyy HH:mm}
-
-Descriere:
-{model.Description ?? "N/A"}
-";
-
-        await DialogService.Alert(details, $"Detalii Model: {model.Name}", new AlertOptions 
-        { 
-            OkButtonText = "Închide",
-            Width = "600px"
-        });
+        await DialogService.OpenAsync<AIModelDetailsDialog>(
+            "Detalii Model AI",
+            new Dictionary<string, object> { { "Model", model } },
+            new DialogOptions
+            {
+                Width = "560px",
+                Height = "auto",
+                CloseDialogOnEsc = true,
+                ShowClose = true
+            }
+        );
     }
 
-    private async Task ToggleModelStatus(SitimApiClient.AIModelDto model)
+    private async Task ToggleModelStatus(AIModelDto model)
     {
         var action = model.IsActive ? "dezactivezi" : "activezi";
         var confirmed = await DialogService.Confirm(
@@ -229,7 +215,7 @@ Descriere:
         }
     }
 
-    private async Task DeleteModel(SitimApiClient.AIModelDto model)
+    private async Task DeleteModel(AIModelDto model)
     {
         var confirmed = await DialogService.Confirm(
             $"Ești sigur că vrei să ștergi modelul '{model.Name}' v{model.Version}? Această acțiune este ireversibilă.",
@@ -259,15 +245,4 @@ Descriere:
         }
     }
 
-    private string GetTaskDisplayName(string? task)
-    {
-        return task switch
-        {
-            "diabetic_retinopathy" => "Retinopatie Diabetică",
-            "chest_xray" => "Radiografie Toracică",
-            "brain_tumor" => "Tumoare Cerebrală",
-            "skin_lesion" => "Leziune Cutanată",
-            _ => task ?? "Necunoscut"
-        };
-    }
 }

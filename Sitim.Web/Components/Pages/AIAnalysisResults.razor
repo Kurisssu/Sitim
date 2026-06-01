@@ -4,7 +4,7 @@
 @inject NavigationManager Navigation
 @inject NotificationService Notification
 
-<PageTitle>Rezultat Analiză — SITIM</PageTitle>
+<PageTitle>Rezultatul analizei</PageTitle>
 
 <RadzenStack Gap="1rem">
     @if (isLoading)
@@ -24,7 +24,7 @@
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
                                   Click="@NavigateToStudy" title="Înapoi la studiu" />
-                    <RadzenText Text="Rezultat Analiză AI" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                    <RadzenText Text="Rezultatul analizei" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn>
@@ -73,8 +73,11 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard>
                         <RadzenStack Gap="0.5rem">
-                            <RadzenText Text="Timp procesare (ms)" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                            <RadzenText Text="@(job.ProcessingTimeMs?.ToString() ?? "—")" TextStyle="TextStyle.Body1" />
+                            <RadzenText Text="Timp procesare" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <LiveDurationTimer StartedAtUtc="@job.StartedAt"
+                                               FinishedAtUtc="@job.FinishedAt"
+                                               ProcessingTimeMs="@job.ProcessingTimeMs"
+                                               CssClass="rz-text-body1 sitim-duration-mono" />
                         </RadzenStack>
                     </RadzenCard>
                 </RadzenColumn>
@@ -157,8 +160,8 @@
     public string JobIdStr { get; set; } = "";
 
     private Guid JobId;
-    private SitimApiClient.AIAnalysisJobStatusDto? job;
-    private SitimApiClient.AIAnalysisResultDto? analysisResult;
+    private AIAnalysisJobStatusDto? job;
+    private AIAnalysisResultDto? analysisResult;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()

@@ -36,13 +36,19 @@ namespace Sitim.Infrastructure.Orthanc
             if (string.IsNullOrWhiteSpace(institution.OrthancBaseUrl))
                 throw new InvalidOperationException($"Institution '{institution.Name}' does not have OrthancBaseUrl configured.");
 
-            // Create HttpClient with institution-specific base address
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.BaseAddress = new Uri(institution.OrthancBaseUrl.TrimEnd('/') + "/");
-            httpClient.Timeout = TimeSpan.FromSeconds(300); // 5 minutes for large archives
+            httpClient.Timeout = TimeSpan.FromSeconds(300);
 
-            // TODO: Add authentication headers if Orthanc requires credentials
-            // httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", ...);
+            if (!string.IsNullOrWhiteSpace(institution.OrthancUsername) &&
+                !string.IsNullOrWhiteSpace(institution.OrthancPassword))
+            {
+                var token = Convert.ToBase64String(
+                    System.Text.Encoding.ASCII.GetBytes(
+                        $"{institution.OrthancUsername}:{institution.OrthancPassword}"));
+                httpClient.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", token);
+            }
 
             return new OrthancClient(httpClient);
         }

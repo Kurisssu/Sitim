@@ -22,6 +22,12 @@ namespace Sitim.Core.Entities
         /// </summary>
         public string OrthancBaseUrl { get; set; } = default!;
 
+        /// <summary>HTTP Basic Auth username for Orthanc. Null if Orthanc allows anonymous access.</summary>
+        public string? OrthancUsername { get; set; }
+
+        /// <summary>HTTP Basic Auth password for Orthanc. Null if Orthanc allows anonymous access.</summary>
+        public string? OrthancPassword { get; set; }
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

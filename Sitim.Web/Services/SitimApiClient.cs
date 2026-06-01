@@ -1,6 +1,12 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Sitim.Core.Contracts.AI;
+using Sitim.Core.Contracts.Auth;
+using Sitim.Core.Contracts.FL;
+using Sitim.Core.Contracts.Institutions;
+using Sitim.Core.Contracts.Studies;
+using Sitim.Core.Contracts.Users;
 using Sitim.Core.Models;
 
 namespace Sitim.Web.Services;
@@ -52,6 +58,31 @@ public sealed class SitimApiClient
         var resp = await _http.GetAsync("api/auth/me");
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<MeResult>(JsonOpts);
+    }
+
+    /// <summary>
+    /// Trade a refresh token for a fresh access token + a rotated refresh token.
+    /// The API rotates the refresh side: the supplied plaintext is single-use.
+    /// Caller is responsible for persisting the new pair.
+    /// </summary>
+    public async Task<LoginResult?> RefreshAsync(string refreshToken)
+    {
+        var resp = await _http.PostAsJsonAsync("api/auth/refresh", new RefreshRequest(refreshToken));
+        if (!resp.IsSuccessStatusCode) return null;
+        return await resp.Content.ReadFromJsonAsync<LoginResult>(JsonOpts);
+    }
+
+    /// <summary>Best-effort server-side revocation of the supplied refresh token.</summary>
+    public async Task LogoutAsync(string? refreshToken)
+    {
+        try
+        {
+            await _http.PostAsJsonAsync("api/auth/logout", new LogoutRequest(refreshToken));
+        }
+        catch
+        {
+            // Logout is idempotent client-side too — don't surface network errors.
+        }
     }
 
     // ── Worklist (local DB) ──────────────────────────────
@@ -150,12 +181,16 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<List<UserResult>>(JsonOpts) ?? [];
     }
 
+    /// <summary>
+    /// Invite a new user. The API sends the activation email itself, so we no longer
+    /// pass the Web app base URL — the server reads <c>Smtp:WebBaseUrl</c> from config.
+    /// </summary>
     public async Task<InviteUserResponse?> InviteUserAsync(
-        string email, string? fullName, string role, Guid? institutionId, string webBaseUrl)
+        string email, string? fullName, string role, Guid? institutionId)
     {
         AttachToken();
         var resp = await _http.PostAsJsonAsync(
-            $"api/users/invite?baseUrl={Uri.EscapeDataString(webBaseUrl)}",
+            "api/users/invite",
             new InviteUserRequest(email, fullName, role, institutionId));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<InviteUserResponse>(JsonOpts);
@@ -206,20 +241,24 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<List<InstitutionResult>>(JsonOpts) ?? [];
     }
 
-    public async Task<InstitutionResult?> CreateInstitutionAsync(string name, string slug, string orthancBaseUrl)
+    public async Task<InstitutionResult?> CreateInstitutionAsync(
+        string name, string slug, string orthancBaseUrl,
+        string? orthancUsername = null, string? orthancPassword = null)
     {
         AttachToken();
         var resp = await _http.PostAsJsonAsync("api/institutions",
-            new CreateInstitutionRequest(name, slug, orthancBaseUrl));
+            new CreateInstitutionRequest(name, slug, orthancBaseUrl, orthancUsername, orthancPassword));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
     }
 
-    public async Task<InstitutionResult?> UpdateInstitutionAsync(Guid id, string name, string orthancBaseUrl, bool isActive)
+    public async Task<InstitutionResult?> UpdateInstitutionAsync(
+        Guid id, string name, string orthancBaseUrl, bool isActive,
+        string? orthancUsername = null, string? orthancPassword = null)
     {
         AttachToken();
         var resp = await _http.PutAsJsonAsync($"api/institutions/{id}",
-            new UpdateInstitutionRequest(name, orthancBaseUrl, isActive));
+            new UpdateInstitutionRequest(name, orthancBaseUrl, isActive, orthancUsername, orthancPassword));
         if (!resp.IsSuccessStatusCode) return null;
         return await resp.Content.ReadFromJsonAsync<InstitutionResult>(JsonOpts);
     }
@@ -297,80 +336,7 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<List<ModelDefinitionDto>>(JsonOpts) ?? [];
     }
 
-    // ── DTOs locale ──────────────────────────────────────
-
-    public sealed record LoginResult(string AccessToken, int ExpiresInSeconds);
-    public sealed record MeResult(Guid UserId, string Email, List<string> Roles, Guid? InstitutionId, string? InstitutionName);
-    public sealed record SyncAllResult(int Synced);
-    public sealed record ViewerLinkResult(string Url);
-    public sealed record ImportResult(int UploadedInstances, List<string> OrthancStudyIds, int SyncedStudies, List<string> Errors);
-    public sealed record InstitutionResult(Guid Id, string Name, string Slug, string OrthancBaseUrl, bool IsActive, DateTime CreatedAtUtc);
-    public sealed record CreateInstitutionRequest(string Name, string Slug, string OrthancBaseUrl);
-    public sealed record UpdateInstitutionRequest(string Name, string OrthancBaseUrl, bool IsActive);
-    public sealed record UserResult(Guid Id, string Email, string? FullName, string Role, Guid? InstitutionId, string? InstitutionName, bool IsActive, DateTime CreatedAtUtc);
-    public sealed record InviteUserRequest(string Email, string? FullName, string Role, Guid? InstitutionId);
-    public sealed record InviteUserResponse(Guid UserId, string Email, string InviteLink);
-    public sealed record UpdateUserRequest(string? FullName, string? Role, bool? IsActive);
-    public sealed record SetPasswordRequest(Guid UserId, string Token, string NewPassword);
-    public sealed record StartFLSessionRequest(string ModelKey, int TotalRounds, List<Guid> InstitutionIds);
-    public sealed record FLSessionDto(
-        Guid Id,
-        string ModelKey,
-        string Status,
-        int TotalRounds,
-        int CurrentRound,
-        int ParticipantsCount,
-        DateTime CreatedAtUtc,
-        DateTime? StartedAtUtc,
-        DateTime? FinishedAtUtc);
-    public sealed record FLParticipantDto(
-        Guid InstitutionId,
-        string InstitutionName,
-        string Status,
-        DateTime? LastHeartbeatUtc);
-    public sealed record FLConnectedClientDto(
-        Guid InstitutionId,
-        string ClientId,
-        string Status,
-        DateTime? LastHeartbeatUtc,
-        bool IsOnline);
-    public sealed record FLRoundDto(
-        int RoundNumber,
-        decimal? AggregatedLoss,
-        decimal? AggregatedAccuracy,
-        DateTime? CompletedAtUtc);
-    public sealed record FLSessionDetailsDto(
-        Guid Id,
-        string ModelKey,
-        string Status,
-        int TotalRounds,
-        int CurrentRound,
-        Guid CreatedByUserId,
-        DateTime CreatedAtUtc,
-        DateTime? StartedAtUtc,
-        DateTime? FinishedAtUtc,
-        string? LastError,
-        string? OutputModelPath,
-        List<FLParticipantDto> Participants,
-        List<FLRoundDto> Rounds);
-    public sealed record FLPublishedModelDto(
-        Guid ModelId,
-        string Name,
-        string Task,
-        string Version,
-        string StorageFileName,
-        bool IsActive);
-    public sealed record ModelDefinitionDto(
-        Guid Id,
-        string Name,
-        string Task,
-        string Version,
-        bool IsActive,
-        string StorageFileName,
-        decimal? Accuracy,
-        string? TrainingSource,
-        string? TargetModality,
-        DateTime CreatedAt);
+    // All DTOs now live in Sitim.Core.Contracts.* — see usings at top of file.
 
     // ── AI Models ─────────────────────────────────────────
 
@@ -516,91 +482,7 @@ public sealed class SitimApiClient
         return await resp.Content.ReadFromJsonAsync<List<AIAnalysisResultDto>>(JsonOpts);
     }
 
-    public sealed record AnalyzeStudyRequest(Guid StudyId, Guid? ModelId = null);
-
-    public sealed record AIAnalysisResultDto(
-        Guid Id,
-        string ModelName,
-        string ModelVersion,
-        int? PredictionClass,
-        decimal Confidence,
-        string Diagnosis,
-        string Severity,
-        List<string> Recommendations,
-        List<ClassProbability> AllProbabilities,
-        int ProcessingTimeMs,
-        DateTime PerformedAt,
-        string PerformedByUserName
-    );
-
-    public sealed record ClassProbability(string ClassName, decimal Probability);
-
-    // Hangfire Job DTOs
-    public sealed record StartAnalysisResponseDto(
-        Guid JobId,
-        string Status,
-        DateTime CreatedAt
-    );
-
-    public sealed record AIAnalysisJobStatusDto(
-        Guid Id,
-        Guid StudyId,
-        string OrthancStudyId,
-        string Status,
-        DateTime CreatedAt,
-        DateTime? StartedAt,
-        DateTime? FinishedAt,
-        string? ModelName,
-        int? PredictionClass,
-        decimal? Confidence,
-        int? ProcessingTimeMs,
-        string? ErrorMessage
-    );
-
-    public sealed record AIAnalysisJobListItemDto(
-        Guid Id,
-        Guid StudyId,
-        string OrthancStudyId,
-        string? PatientName,
-        string? StudyDate,
-        IReadOnlyList<string> ModalitiesInStudy,
-        string Status,
-        DateTime CreatedAt,
-        DateTime? StartedAt,
-        DateTime? FinishedAt,
-        string? ModelName,
-        int? PredictionClass,
-        decimal? Confidence,
-        int? ProcessingTimeMs,
-        string? ErrorMessage
-    );
-
-    public sealed record AIModelDto(
-        Guid Id,
-        string Name,
-        string? Description,
-        string Task,
-        string Version,
-        string StorageFileName,
-        decimal? Accuracy,
-        bool IsActive,
-        int? NumClasses,
-        string? InputShape,
-        string? TrainingSource,
-        DateTime CreatedAt
-    );
-
-    // Model selection DTO (lightweight, for UI)
-    public sealed record AIModelSelectionDto(
-        Guid Id,
-        string Name,
-        string Version,
-        string Task,
-        decimal? Accuracy,
-        string? TargetModality,
-        string? Description
-    )
-    {
-        public string Label => $"{Name} (v{Version})";
-    };
+    // AnalyzeStudyRequest, AIAnalysisResultDto, ClassProbability, StartAnalysisResponseDto,
+    // AIAnalysisJobStatusDto, AIAnalysisJobListItemDto, AIModelDto and AIModelSelectionDto
+    // moved to Sitim.Core.Contracts.AI — see usings at top of file.
 }

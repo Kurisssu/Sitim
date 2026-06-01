@@ -86,7 +86,7 @@
 </RadzenStack>
 
 @code {
-    private List<SitimApiClient.AIAnalysisJobListItemDto> jobs = new();
+    private List<AIAnalysisJobListItemDto> jobs = new();
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -111,7 +111,7 @@
         }
     }
 
-    private void OpenAnalysis(SitimApiClient.AIAnalysisJobListItemDto item)
+    private void OpenAnalysis(AIAnalysisJobListItemDto item)
     {
         var path = item.Status == "Completed"
             ? $"/analysis/{item.Id}/results"
@@ -119,7 +119,7 @@
         Navigation.NavigateTo(path);
     }
 
-    private void OpenStudy(SitimApiClient.AIAnalysisJobListItemDto item)
+    private void OpenStudy(AIAnalysisJobListItemDto item)
     {
         Navigation.NavigateTo($"/studies/{item.OrthancStudyId}");
     }

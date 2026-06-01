@@ -25,16 +25,9 @@
 
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
         <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenCheckBox @bind-Value="_autoRefresh" TValue="bool" />
-                <RadzenText Text="Auto-refresh (5 sec)" TextStyle="TextStyle.Body2" />
-            </RadzenStack>
+            <RadzenText Text="Actualizare automată la 5 sec" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
         </RadzenColumn>
     </RadzenRow>
-
-    <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-        Funcționalitatea FL este în dezvoltare. Pentru demo, sesiunea necesită clienți FL online și studii etichetate disponibile în fiecare instituție selectată.
-    </RadzenAlert>
 
     <RadzenCard>
         <RadzenStack Gap="0.5rem">
@@ -120,11 +113,9 @@
     }
 </RadzenStack>
 
-@if (_showCreateDialog)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:440px;max-width:680px;padding:2rem;box-shadow:var(--rz-shadow-4);">
-            <RadzenText Text="Sesiune FL nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
+<SitimModal Show="@_showCreateDialog" OnClose="@CloseCreateDialog">
+    <RadzenCard Style="min-width:440px;max-width:680px;padding:2rem;">
+        <RadzenText Text="Sesiune FL nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
                 <RadzenFormField Text="Cheie model *" Style="width:100%">
                     <ChildContent>
@@ -138,27 +129,53 @@
                     </ChildContent>
                 </RadzenFormField>
 
-                <RadzenFormField Text="Instituții participante *" Style="width:100%">
-                    <ChildContent>
-                        <RadzenDropDown @bind-Value="_selectedInstitutionIds"
-                                        Data="@_institutions.Where(i => i.IsActive).OrderBy(i => i.Name).ToList()"
-                                        TextProperty="Name"
-                                        ValueProperty="Id"
-                                        Multiple="true"
-                                        Chips="true"
-                                        AllowClear="true"
-                                        Placeholder="Selectați instituțiile participante"
-                                        Style="width:100%" />
-                    </ChildContent>
-                    <Helper>
-                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                            Selectați minimum o instituție activă. Doar instituțiile cu client FL conectat pot porni sesiunea.
-                        </RadzenText>
-                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                            Conectate acum: @_connectedClients.Count(c => c.IsOnline) / @_institutions.Count(i => i.IsActive)
-                        </RadzenText>
-                    </Helper>
-                </RadzenFormField>
+                <div class="sitim-field-label">
+                    Instituții participante <span class="sitim-required">*</span>
+                </div>
+                <div class="sitim-institution-picker">
+                    @{
+                        var activeInstitutions = _institutions.Where(i => i.IsActive).OrderBy(i => i.Name).ToList();
+                    }
+                    @if (activeInstitutions.Count == 0)
+                    {
+                        <div class="sitim-institution-empty">
+                            <RadzenIcon Icon="domain_disabled" />
+                            <span>Nu există instituții active.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var inst in activeInstitutions)
+                        {
+                            var isSelected = _selectedInstitutionIds.Contains(inst.Id);
+                            var isOnline = _connectedClients.Any(c => c.InstitutionId == inst.Id && c.IsOnline);
+                            <div class="@($"sitim-institution-item{(isSelected ? " is-selected" : string.Empty)}{(isOnline ? " is-online" : " is-offline")}")"
+                                 @onclick="@(() => ToggleInstitutionSelection(inst.Id))"
+                                 role="checkbox"
+                                 aria-checked="@isSelected.ToString().ToLowerInvariant()"
+                                 tabindex="0">
+                                <div class="sitim-institution-check">
+                                    <RadzenIcon Icon="@(isSelected ? "check_circle" : "radio_button_unchecked")" />
+                                </div>
+                                <div class="sitim-institution-info">
+                                    <div class="sitim-institution-name">@inst.Name</div>
+                                    <div class="sitim-institution-status">
+                                        <span class="sitim-status-dot"></span>
+                                        @(isOnline ? "Client FL conectat" : "Client FL deconectat")
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="sitim-helper-row">
+                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin: 0;">
+                        Selectați minimum o instituție activă. Doar instituțiile cu client FL conectat pot porni sesiunea.
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin: 0;">
+                        Selectate: <strong style="color: var(--sitim-accent);">@_selectedInstitutionIds.Count</strong> · Conectate: <strong style="color: var(--sitim-accent);">@_connectedClients.Count(c => c.IsOnline)</strong> / @activeInstitutions.Count
+                    </RadzenText>
+                </div>
 
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
                     <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseCreateDialog" />
@@ -166,17 +183,15 @@
                                   Click="@CreateSessionAsync" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
-        </RadzenCard>
-    </div>
-}
+    </RadzenCard>
+</SitimModal>
 
 @code {
-    private List<SitimApiClient.FLSessionDto> _sessions = [];
-    private List<SitimApiClient.InstitutionResult> _institutions = [];
-    private List<SitimApiClient.FLConnectedClientDto> _connectedClients = [];
+    private List<FLSessionDto> _sessions = [];
+    private List<InstitutionResult> _institutions = [];
+    private List<FLConnectedClientDto> _connectedClients = [];
     private bool _loading = true;
     private bool _saving;
-    private bool _autoRefresh = true;
     private System.Timers.Timer? _refreshTimer;
 
     private bool _showCreateDialog;
@@ -240,7 +255,9 @@
         _refreshTimer = new System.Timers.Timer(5000);
         _refreshTimer.Elapsed += (_, _) =>
         {
-            if (!_autoRefresh || !_sessions.Any(s => IsSessionRunning(s.Status)))
+            // Skip API calls when nothing is active, to avoid hammering it
+            // with no-op requests. Active sessions trigger a reload every tick.
+            if (!_sessions.Any(s => IsSessionRunning(s.Status)))
                 return;
 
             _ = InvokeAsync(LoadSessionsAsync);
@@ -260,6 +277,12 @@
     private void CloseCreateDialog()
     {
         _showCreateDialog = false;
+    }
+
+    private void ToggleInstitutionSelection(Guid institutionId)
+    {
+        if (!_selectedInstitutionIds.Remove(institutionId))
+            _selectedInstitutionIds.Add(institutionId);
     }
 
     private async Task CreateSessionAsync()
@@ -362,7 +385,7 @@
         return institution is null ? institutionId.ToString() : $"{institution.Name} ({institution.Id})";
     }
 
-    private string GetConnectedClientBadgeText(SitimApiClient.FLConnectedClientDto client)
+    private string GetConnectedClientBadgeText(FLConnectedClientDto client)
     {
         var institution = _institutions.FirstOrDefault(i => i.Id == client.InstitutionId);
         var institutionLabel = institution?.Name ?? client.InstitutionId.ToString();

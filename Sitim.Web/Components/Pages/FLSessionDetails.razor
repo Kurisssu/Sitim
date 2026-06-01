@@ -18,9 +18,8 @@
             </RadzenStack>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
-            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenCheckBox @bind-Value="_autoRefresh" TValue="bool" />
-                <RadzenText Text="Auto-refresh (5 sec)" TextStyle="TextStyle.Body2" />
+            <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" AlignItems="AlignItems.Center">
+                <RadzenText Text="Actualizare automată la 5 sec" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                 <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                               Click="@LoadSessionAsync" IsBusy="@_loading" />
             </RadzenStack>
@@ -175,8 +174,12 @@
                                           CategoryProperty="RoundNumber"
                                           ValueProperty="AggregatedAccuracy"
                                           Title="Accuracy" />
-                        <RadzenCategoryAxis Title="Runda" />
-                        <RadzenValueAxis Title="Valoare metrică" />
+                        <RadzenCategoryAxis>
+                            <RadzenAxisTitle Text="Runda" />
+                        </RadzenCategoryAxis>
+                        <RadzenValueAxis>
+                            <RadzenAxisTitle Text="Valoare metrică" />
+                        </RadzenValueAxis>
                     </RadzenChart>
 
                     <div style="overflow:auto;">
@@ -213,11 +216,10 @@
     public string SessionIdStr { get; set; } = string.Empty;
 
     private Guid _sessionId;
-    private SitimApiClient.FLSessionDetailsDto? _session;
-    private SitimApiClient.FLPublishedModelDto? _publishedModel;
+    private FLSessionDetailsDto? _session;
+    private FLPublishedModelDto? _publishedModel;
     private bool _loading = true;
     private bool _activatingModel;
-    private bool _autoRefresh = true;
     private System.Timers.Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
@@ -259,7 +261,8 @@
         _refreshTimer = new System.Timers.Timer(5000);
         _refreshTimer.Elapsed += (_, _) =>
         {
-            if (!_autoRefresh || _session is null || !IsSessionRunning(_session.Status))
+            // Skip API calls when the session has finished — its state is final.
+            if (_session is null || !IsSessionRunning(_session.Status))
                 return;
 
             _ = InvokeAsync(LoadSessionAsync);

@@ -84,10 +84,10 @@
                             </RadzenFormField>
                         </RadzenColumn>
                         <RadzenColumn Size="12" SizeMD="6">
-                            <RadzenFormField Text="Timp Procesare" Variant="Variant.Text">
+                            <RadzenFormField Text="Timp procesare" Variant="Variant.Text">
                                 <ChildContent>
-                                    <RadzenTextBox ReadOnly="true" 
-                                                 Value="@($"{LastAnalysisResult.ProcessingTimeMs} ms")" 
+                                    <RadzenTextBox ReadOnly="true"
+                                                 Value="@Sitim.Web.Services.DurationFormatter.Format(LastAnalysisResult.ProcessingTimeMs)"
                                                  Style="width: 100%;" />
                                 </ChildContent>
                             </RadzenFormField>
@@ -122,9 +122,9 @@
     [Parameter]
     public Guid StudyId { get; set; }
 
-    private List<SitimApiClient.AIModelDto> AvailableModels = [];
+    private List<AIModelDto> AvailableModels = [];
     private Guid SelectedModelId = Guid.Empty;
-    private SitimApiClient.AIAnalysisResultDto? LastAnalysisResult;
+    private AIAnalysisResultDto? LastAnalysisResult;
     private bool isLoadingModels = true;
     private bool isRunningAnalysis = false;
 

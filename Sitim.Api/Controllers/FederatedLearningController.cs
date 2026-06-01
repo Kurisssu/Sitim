@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sitim.Api.Security;
+using Sitim.Core.Contracts.FL;
 using Sitim.Core.Entities;
 using Sitim.Core.Services;
 using System.Security.Claims;
@@ -186,60 +187,4 @@ public sealed class FederatedLearningController : ControllerBase
                 .ToList());
 }
 
-public sealed record StartFLSessionRequest(
-    string ModelKey,
-    int TotalRounds,
-    List<Guid> InstitutionIds);
 
-public sealed record FLSessionDto(
-    Guid Id,
-    string ModelKey,
-    string Status,
-    int TotalRounds,
-    int CurrentRound,
-    int ParticipantsCount,
-    DateTime CreatedAtUtc,
-    DateTime? StartedAtUtc,
-    DateTime? FinishedAtUtc);
-
-public sealed record FLParticipantDto(
-    Guid InstitutionId,
-    string InstitutionName,
-    string Status,
-    DateTime? LastHeartbeatUtc);
-
-public sealed record FLConnectedClientDto(
-    Guid InstitutionId,
-    string ClientId,
-    string Status,
-    DateTime? LastHeartbeatUtc,
-    bool IsOnline);
-
-public sealed record FLPublishedModelDto(
-    Guid ModelId,
-    string Name,
-    string Task,
-    string Version,
-    string StorageFileName,
-    bool IsActive);
-
-public sealed record FLRoundDto(
-    int RoundNumber,
-    decimal? AggregatedLoss,
-    decimal? AggregatedAccuracy,
-    DateTime? CompletedAtUtc);
-
-public sealed record FLSessionDetailsDto(
-    Guid Id,
-    string ModelKey,
-    string Status,
-    int TotalRounds,
-    int CurrentRound,
-    Guid CreatedByUserId,
-    DateTime CreatedAtUtc,
-    DateTime? StartedAtUtc,
-    DateTime? FinishedAtUtc,
-    string? LastError,
-    string? OutputModelPath,
-    List<FLParticipantDto> Participants,
-    List<FLRoundDto> Rounds);

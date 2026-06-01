@@ -42,6 +42,13 @@ builder.Services.AddAuthorizationCore();
 
 // ── HTTP client for API calls ────────────────────────────
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7006";
+var webBaseUrl = builder.Configuration["Web:BaseUrl"] ?? "https://localhost:5001";
+
+// NOTE: SitimApiClient sets the Bearer header per-call via AttachToken(). We do NOT
+// register AuthTokenHandler as a DelegatingHandler in the pipeline — HttpMessageHandler
+// instances are reused for ~2 min across Blazor circuits (HandlerLifetime), and any
+// scoped service captured by the handler at construction would freeze to the wrong
+// circuit. Refresh-on-expiry is driven proactively from SitimAuthStateProvider instead.
 
 builder.Services.AddHttpClient<SitimApiClient>(client =>
 {
@@ -51,6 +58,32 @@ builder.Services.AddHttpClient<SitimApiClient>(client =>
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
     // Dev: accept self-signed certs from API
+    ServerCertificateCustomValidationCallback =
+        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+});
+
+// Named client used by AuthTokenHandler to call /api/auth/refresh WITHOUT routing
+// back through AuthTokenHandler (that would recurse). Same primary handler as the
+// typed client so the dev cert override applies.
+builder.Services.AddHttpClient("sitim-auth-raw", c =>
+{
+    c.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback =
+        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+});
+
+// Named client targeting the WEB app itself (for /auth/cookie/set persistence after refresh).
+builder.Services.AddHttpClient("sitim-cookie-persist", c =>
+{
+    c.BaseAddress = new Uri(webBaseUrl.TrimEnd('/') + "/");
+    c.Timeout = TimeSpan.FromSeconds(10);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
     ServerCertificateCustomValidationCallback =
         HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
 });

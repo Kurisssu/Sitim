@@ -105,12 +105,10 @@
             </RadzenFormField>
 
             <!-- Active Status -->
-            <RadzenFormField Text="Status" Variant="Variant.Outlined">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenSwitch @bind-Value="@model.IsActive" />
-                    <RadzenText>@(model.IsActive ? "Activat imediat după încărcare" : "Salvează ca inactiv")</RadzenText>
-                </RadzenStack>
-            </RadzenFormField>
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                <RadzenSwitch @bind-Value="@model.IsActive" />
+                <RadzenText TextStyle="TextStyle.Body2">@(model.IsActive ? "Activat imediat după încărcare" : "Salvează ca inactiv")</RadzenText>
+            </RadzenStack>
 
             <!-- Buttons -->
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End" class="rz-mt-4">

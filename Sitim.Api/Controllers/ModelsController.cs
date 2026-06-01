@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Sitim.Api.Security;
+using Sitim.Core.Contracts.AI;
 using Sitim.Infrastructure.Data;
 
 namespace Sitim.Api.Controllers;
@@ -67,14 +68,3 @@ public sealed class ModelsController : ControllerBase
     }
 }
 
-public sealed record ModelDefinitionDto(
-    Guid Id,
-    string Name,
-    string Task,
-    string Version,
-    bool IsActive,
-    string StorageFileName,
-    decimal? Accuracy,
-    string? TrainingSource,
-    string? TargetModality,
-    DateTime CreatedAt);

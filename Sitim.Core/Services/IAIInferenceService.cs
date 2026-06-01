@@ -1,3 +1,4 @@
+using Sitim.Core.Contracts.AI;
 using Sitim.Core.Entities;
 
 namespace Sitim.Core.Services;
@@ -31,22 +32,5 @@ public interface IAIInferenceService
     Task ExecuteAnalysisJobAsync(Guid analysisJobId, CancellationToken cancellationToken);
 }
 
-/// <summary>
-/// DTO for analysis result
-/// </summary>
-public record AIAnalysisResultDto(
-    Guid Id,
-    string ModelName,
-    string ModelVersion,
-    int? PredictionClass,
-    decimal Confidence,
-    string Diagnosis,
-    string Severity,
-    List<string> Recommendations,
-    List<ClassProbability> AllProbabilities,
-    int ProcessingTimeMs,
-    DateTime PerformedAt,
-    string PerformedByUserName
-);
-
-public record ClassProbability(string ClassName, decimal Probability);
+// AIAnalysisResultDto and ClassProbability moved to Sitim.Core.Contracts.AI
+// (see Sitim.Core/Contracts/AI/AIAnalysisContracts.cs)

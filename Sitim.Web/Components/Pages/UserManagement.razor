@@ -99,11 +99,9 @@
 </RadzenStack>
 
 @* ── Invite dialog ── *@
-@if (_showInviteDialog)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:440px;max-width:640px;padding:2rem;box-shadow:var(--rz-shadow-4);">
-            @if (_inviteLink is null)
+<SitimModal Show="@_showInviteDialog" OnClose="@CloseDialogs">
+    <RadzenCard Style="min-width:440px;max-width:640px;padding:2rem;">
+        @if (_inviteResult is null)
             {
                 <RadzenText Text="Invită utilizator nou" TextStyle="TextStyle.H6" class="rz-mb-4" />
                 <RadzenStack Gap="1rem">
@@ -139,36 +137,57 @@
                     }
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
                         <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                        <RadzenButton Text="Generează link" Icon="link" ButtonStyle="ButtonStyle.Primary"
+                        <RadzenButton Text="Trimite invitație" Icon="mail" ButtonStyle="ButtonStyle.Primary"
                                       Click="@DoInvite" IsBusy="@_saving" />
                     </RadzenStack>
                 </RadzenStack>
             }
-            else
+            else if (_inviteResult.EmailSent)
             {
-                <RadzenText Text="Link de invitație generat" TextStyle="TextStyle.H6" class="rz-mb-3" />
-                <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mb-3">
-                    Trimiteți linkul de mai jos utilizatorului. Acesta va putea să-și seteze parola
-                    și să se autentifice în platformă.
+                <RadzenText Text="Invitație trimisă" TextStyle="TextStyle.H6" class="rz-mb-3" />
+                <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-mb-3">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                        <RadzenIcon Icon="mark_email_read" />
+                        <span>Am trimis un email cu link de activare la <strong>@_inviteResult.Email</strong>.</span>
+                    </RadzenStack>
                 </RadzenAlert>
-                <RadzenFormField Text="Link invitație" Style="width:100%">
-                    <ChildContent>
-                        <RadzenTextBox Value="@_inviteLink" ReadOnly="true" Style="width:100%;font-size:0.8rem;" />
-                    </ChildContent>
-                </RadzenFormField>
+                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+                    Linkul este valabil 2 ore și poate fi folosit o singură dată. Dacă utilizatorul nu îl primește, verifică folderul Spam sau încarcă invitația din nou.
+                </RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
                     <RadzenButton Text="Închide" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
                 </RadzenStack>
             }
-        </RadzenCard>
-    </div>
-}
+            else
+            {
+                @* SMTP failed — fallback link is shown only in Development (server-controlled). *@
+                <RadzenText Text="Email indisponibil" TextStyle="TextStyle.H6" class="rz-mb-3" />
+                <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" class="rz-mb-3">
+                    Trimiterea emailului a eșuat. Contul nou a fost retras automat.
+                </RadzenAlert>
+                @if (!string.IsNullOrWhiteSpace(_inviteResult.FallbackLink))
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mb-3" Size="AlertSize.Small">
+                        Modul Development: poți folosi linkul de mai jos manual.
+                    </RadzenAlert>
+                    <RadzenFormField Text="Link de fallback (DEV)" Style="width:100%">
+                        <ChildContent>
+                            <RadzenTextBox Value="@_inviteResult.FallbackLink" ReadOnly="true" Style="width:100%;font-size:0.8rem;" />
+                        </ChildContent>
+                    </RadzenFormField>
+                }
+                <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
+                    <RadzenButton Text="Închide" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
+                </RadzenStack>
+            }
+    </RadzenCard>
+</SitimModal>
 
 @* ── Edit dialog ── *@
-@if (_showEditDialog && _editTarget is not null)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:420px;max-width:560px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+<SitimModal Show="@(_showEditDialog && _editTarget is not null)" OnClose="@CloseDialogs">
+    @if (_editTarget is not null)
+    {
+        <RadzenCard Style="min-width:420px;max-width:560px;padding:2rem;">
             <RadzenText Text="Editare utilizator" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
                 <RadzenFormField Text="Nume complet" Style="width:100%">
@@ -194,14 +213,14 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
-    </div>
-}
+    }
+</SitimModal>
 
 @* ── Confirm delete dialog ── *@
-@if (_showDeleteDialog && _deleteTarget is not null)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:380px;max-width:480px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+<SitimModal Show="@(_showDeleteDialog && _deleteTarget is not null)" OnClose="@CloseDialogs">
+    @if (_deleteTarget is not null)
+    {
+        <RadzenCard Style="min-width:380px;max-width:480px;padding:2rem;">
             <RadzenStack Gap="1rem">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
                     <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
@@ -219,12 +238,12 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
-    </div>
-}
+    }
+</SitimModal>
 
 @code {
-    private List<SitimApiClient.UserResult> _users = [];
-    private List<SitimApiClient.InstitutionResult> _institutions = [];
+    private List<UserResult> _users = [];
+    private List<InstitutionResult> _institutions = [];
     private bool _loading = true;
     private bool _saving = false;
 
@@ -234,18 +253,18 @@
     private string? _invFullName;
     private string _invRole = "Doctor";
     private Guid? _invInstitutionId;
-    private string? _inviteLink;
+    private InviteUserResponse? _inviteResult;
 
     // Edit dialog
     private bool _showEditDialog = false;
-    private SitimApiClient.UserResult? _editTarget;
+    private UserResult? _editTarget;
     private string _editFullName = "";
     private string _editRole = "Doctor";
     private bool _editIsActive = true;
 
     // Delete dialog
     private bool _showDeleteDialog = false;
-    private SitimApiClient.UserResult? _deleteTarget;
+    private UserResult? _deleteTarget;
 
     protected override async Task OnInitializedAsync()
     {
@@ -265,13 +284,13 @@
 
     private void OpenInviteDialog()
     {
-        _invEmail = ""; _invFullName = null; _invRole = "Doctor"; _invInstitutionId = null; _inviteLink = null;
+        _invEmail = ""; _invFullName = null; _invRole = "Doctor"; _invInstitutionId = null; _inviteResult = null;
         _showInviteDialog = true;
         _showEditDialog = false;
         _showDeleteDialog = false;
     }
 
-    private void OpenEditDialog(SitimApiClient.UserResult u)
+    private void OpenEditDialog(UserResult u)
     {
         _editTarget = u;
         _editFullName = u.FullName ?? "";
@@ -282,7 +301,7 @@
         _showDeleteDialog = false;
     }
 
-    private void ConfirmDelete(SitimApiClient.UserResult u)
+    private void ConfirmDelete(UserResult u)
     {
         _deleteTarget = u;
         _showDeleteDialog = true;
@@ -295,7 +314,7 @@
         _showInviteDialog = false;
         _showEditDialog = false;
         _showDeleteDialog = false;
-        _inviteLink = null;
+        _inviteResult = null;
         _deleteTarget = null;
     }
 
@@ -313,8 +332,7 @@
         }
 
         _saving = true;
-        var baseUrl = Navigation.BaseUri.TrimEnd('/');
-        var result = await Api.InviteUserAsync(_invEmail, _invFullName, _invRole, _invInstitutionId, baseUrl);
+        var result = await Api.InviteUserAsync(_invEmail, _invFullName, _invRole, _invInstitutionId);
         _saving = false;
 
         if (result is null)
@@ -323,9 +341,13 @@
             return;
         }
 
-        _inviteLink = result.InviteLink;
+        _inviteResult = result;
         await LoadAsync();
-        NotificationService.Notify(NotificationSeverity.Success, $"Utilizatorul {result.Email} a fost creat.");
+
+        if (result.EmailSent)
+            NotificationService.Notify(NotificationSeverity.Success, $"Email de invitație trimis către {result.Email}.");
+        else
+            NotificationService.Notify(NotificationSeverity.Warning, "Trimiterea emailului a eșuat. Vezi detaliile în dialog.");
     }
 
     private async Task DoEdit()

@@ -2,8 +2,17 @@
 @using Radzen.Blazor
 @inject DialogService DialogService
 
-<RadzenStack Gap="1rem">
-    <RadzenText Text="Selectează modelul AI pentru analiză" TextStyle="TextStyle.H6" class="rz-mb-2" />
+<div class="sitim-model-picker-root">
+    <div class="sitim-model-picker-header">
+        <div class="sitim-model-picker-title">
+            <RadzenIcon Icon="psychology" />
+            <span>Selectează modelul AI pentru analiză</span>
+        </div>
+        @if (Models is not null && Models.Any())
+        {
+            <span class="sitim-model-picker-count">@Models.Count modele compatibile</span>
+        }
+    </div>
 
     @if (Models == null || !Models.Any())
     {
@@ -13,84 +22,83 @@
     }
     else
     {
-        <RadzenText Text="@($"Modele compatibile ({Models.Count})")" TextStyle="TextStyle.Caption"
-                    style="color: var(--rz-text-tertiary-color);" />
-
-        <RadzenRow Gap="1rem">
-            <RadzenColumn Size="12" SizeMD="5">
-                <div style="display:flex; flex-direction:column; gap:0.5rem; max-height:420px; overflow-y:auto; padding-right:0.25rem;">
-                    @foreach (var model in Models.OrderByDescending(m => m.Accuracy ?? 0))
-                    {
-                        var isSelected = model.Id == SelectedModelId;
-                        <div @onclick="@(() => SelectModel(model.Id))" style="cursor:pointer;">
-                            <RadzenCard Style="@($"border:1px solid {(isSelected ? "var(--rz-primary)" : "var(--rz-border-color)")} ; background:{(isSelected ? "var(--rz-base-200)" : "var(--rz-base-100)")};")">
-                                <RadzenStack Gap="0.25rem">
-                                    <RadzenText Text="@model.Name" TextStyle="TextStyle.Subtitle2" />
-                                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
-                                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"v{model.Version}")" />
-                                        @if (!string.IsNullOrWhiteSpace(model.TargetModality))
-                                        {
-                                            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@model.TargetModality" />
-                                        }
-                                        @if (model.Accuracy.HasValue)
-                                        {
-                                            <RadzenText Text="@model.Accuracy.Value.ToString("P1")" TextStyle="TextStyle.Caption" />
-                                        }
-                                    </RadzenStack>
-                                </RadzenStack>
-                            </RadzenCard>
+        <div class="sitim-model-picker-grid">
+            <div class="sitim-model-picker-list">
+                @foreach (var model in Models.OrderByDescending(m => m.Accuracy ?? 0))
+                {
+                    var isSelected = model.Id == SelectedModelId;
+                    <div class="@($"sitim-model-card{(isSelected ? " is-selected" : string.Empty)}")"
+                         @onclick="@(() => SelectModel(model.Id))"
+                         role="button"
+                         tabindex="0">
+                        <div class="sitim-model-card-radio">
+                            <RadzenIcon Icon="@(isSelected ? "check_circle" : "radio_button_unchecked")" />
                         </div>
-                    }
-                </div>
-            </RadzenColumn>
+                        <div class="sitim-model-card-body">
+                            <div class="sitim-model-card-name">@model.Name</div>
+                            <div class="sitim-model-card-meta">
+                                <span class="sitim-model-chip is-version">v@(model.Version)</span>
+                                @if (!string.IsNullOrWhiteSpace(model.TargetModality))
+                                {
+                                    <span class="sitim-model-chip is-modality">@model.TargetModality</span>
+                                }
+                                @if (model.Accuracy.HasValue)
+                                {
+                                    <span class="sitim-model-accuracy">
+                                        <RadzenIcon Icon="trending_up" />
+                                        @model.Accuracy.Value.ToString("P1")
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
 
-            <RadzenColumn Size="12" SizeMD="7">
-                <RadzenCard Style="min-height: 420px;">
-                    @if (SelectedModel is null)
-                    {
-                        <RadzenStack AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Style="height:100%;">
-                            <RadzenText Text="Selectează un model din listă pentru detalii." TextStyle="TextStyle.Body2" />
-                        </RadzenStack>
-                    }
-                    else
-                    {
-                        <RadzenStack Gap="1rem">
-                            <RadzenText Text="@SelectedModel.Name" TextStyle="TextStyle.H6" />
-                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                                <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@($"v{SelectedModel.Version}")" />
-                                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@(SelectedModel.TargetModality ?? "Any modality")" />
-                                <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@(SelectedModel.Accuracy?.ToString("P2") ?? "Accuracy n/a")" />
-                            </RadzenStack>
+            <div class="sitim-model-picker-details">
+                @if (SelectedModel is null)
+                {
+                    <div class="sitim-model-details-empty">
+                        <RadzenIcon Icon="article" />
+                        <span>Selectează un model din listă pentru detalii.</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="sitim-model-details-content">
+                        <div class="sitim-model-details-header">
+                            <div class="sitim-model-details-name">@SelectedModel.Name</div>
+                            <div class="sitim-model-details-badges">
+                                <span class="sitim-model-chip is-version">v@(SelectedModel.Version)</span>
+                                <span class="sitim-model-chip is-modality">@(SelectedModel.TargetModality ?? "Orice modalitate")</span>
+                                <span class="sitim-model-chip is-accuracy">@(SelectedModel.Accuracy?.ToString("P2") ?? "Acuratețe n/a")</span>
+                            </div>
+                        </div>
 
-                            <RadzenCard Variant="Variant.Filled" Style="padding:0.75rem;">
-                                <RadzenText Text="Task" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                                <RadzenText Text="@SelectedModel.Task" TextStyle="TextStyle.Body1" />
-                            </RadzenCard>
-
-                            <RadzenCard Variant="Variant.Filled" Style="padding:0.75rem;">
-                                <RadzenText Text="Descriere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                                <RadzenText Text="@(string.IsNullOrWhiteSpace(SelectedModel.Description) ? "Fără descriere." : SelectedModel.Description)" TextStyle="TextStyle.Body2" />
-                            </RadzenCard>
-                        </RadzenStack>
-                    }
-                </RadzenCard>
-            </RadzenColumn>
-        </RadzenRow>
+                        <div class="sitim-model-details-field">
+                            <div class="sitim-model-details-label">Descriere</div>
+                            <div class="sitim-model-details-value">
+                                @(string.IsNullOrWhiteSpace(SelectedModel.Description) ? "Fără descriere." : SelectedModel.Description)
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
     }
 
-    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
-        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text"
-                      Click="@Cancel" />
-        <RadzenButton Text="Pornește Analiză" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
+    <div class="sitim-model-picker-actions">
+        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+        <RadzenButton Text="Pornește analiza" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
                       Click="@Select" Disabled="@(SelectedModelId == Guid.Empty)" />
-    </RadzenStack>
-</RadzenStack>
+    </div>
+</div>
 
 @code {
-    [Parameter] public List<SitimApiClient.AIModelSelectionDto>? Models { get; set; }
+    [Parameter] public List<AIModelSelectionDto>? Models { get; set; }
 
     private Guid SelectedModelId = Guid.Empty;
-    private SitimApiClient.AIModelSelectionDto? SelectedModel =>
+    private AIModelSelectionDto? SelectedModel =>
         Models?.FirstOrDefault(m => m.Id == SelectedModelId);
 
     protected override void OnParametersSet()

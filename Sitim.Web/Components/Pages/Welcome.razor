@@ -1,63 +1,208 @@
 @page "/"
 @attribute [Authorize]
+@using System.Globalization
 @inject NavigationManager Navigation
 @inject AuthTokenStore TokenStore
 
-<PageTitle>Bun venit</PageTitle>
+<PageTitle>Bun venit — SITIM</PageTitle>
 
-<RadzenStack Gap="1rem">
-    <RadzenText Text="Bun venit" TextStyle="TextStyle.DisplayH5" />
-    <RadzenText Text="Alege rapid funcționalitatea dorită." TextStyle="TextStyle.Body2"
-                style="color: var(--rz-text-tertiary-color);" />
+<!-- ═══════════════════════════════════════════════════════════════
+     1. HERO GREETING
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="sitim-welcome-hero">
+    <div class="sitim-welcome-hero-content">
+        <div class="sitim-welcome-hero-text">
+            <h1 class="sitim-welcome-greeting">@_greeting, @_displayName</h1>
+            <p class="sitim-welcome-subline">
+                <span>@_dateString</span>
+                @if (!string.IsNullOrWhiteSpace(TokenStore.InstitutionName))
+                {
+                    <span class="sitim-welcome-dot">&middot;</span>
+                    <span>@TokenStore.InstitutionName</span>
+                }
+            </p>
+        </div>
+    </div>
+</section>
 
-    <RadzenRow Gap="1rem">
-        <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard>
-                <RadzenStack Gap="0.75rem">
-                    <RadzenIcon Icon="list_alt" style="font-size: 28px; color: var(--rz-primary);" />
-                    <RadzenText Text="Lista de studii" TextStyle="TextStyle.H6" />
-                    <RadzenText Text="Vizualizare și gestionare studii imagistice."
-                                TextStyle="TextStyle.Caption"
-                                style="color: var(--rz-text-tertiary-color);" />
-                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Primary"
-                                  Click="@(() => Navigation.NavigateTo("/studies"))" />
-                </RadzenStack>
+<!-- ═══════════════════════════════════════════════════════════════
+     2. KPI GRID
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="sitim-welcome-section">
+    <div class="sitim-welcome-kpi-grid">
+
+        <RadzenCard class="sitim-welcome-kpi-card">
+            <RadzenIcon Icon="biotech" class="sitim-welcome-kpi-icon sitim-kpi-icon-teal" />
+            <div class="sitim-welcome-kpi-value sitim-text-gradient">@_stats.StudiesThisMonth</div>
+            <div class="sitim-welcome-kpi-label">Studii această lună</div>
+            @if (_stats.StudiesTrendPct != 0)
+            {
+                <div class="sitim-welcome-kpi-trend @(_stats.StudiesTrendPct > 0 ? "sitim-trend-up" : "sitim-trend-down")">
+                    @(_stats.StudiesTrendPct > 0 ? "↗" : "↘") @(Math.Abs(_stats.StudiesTrendPct))%
+                </div>
+            }
+        </RadzenCard>
+
+        <RadzenCard class="sitim-welcome-kpi-card">
+            <RadzenIcon Icon="psychology" class="sitim-welcome-kpi-icon sitim-kpi-icon-cyan" />
+            <div class="sitim-welcome-kpi-value sitim-text-gradient">@_stats.AiAnalysesThisMonth</div>
+            <div class="sitim-welcome-kpi-label">Analize AI luna aceasta</div>
+            @if (_stats.AiAnalysesTrendPct != 0)
+            {
+                <div class="sitim-welcome-kpi-trend @(_stats.AiAnalysesTrendPct > 0 ? "sitim-trend-up" : "sitim-trend-down")">
+                    @(_stats.AiAnalysesTrendPct > 0 ? "↗" : "↘") @(Math.Abs(_stats.AiAnalysesTrendPct))%
+                </div>
+            }
+        </RadzenCard>
+
+        <RadzenCard class="sitim-welcome-kpi-card">
+            <RadzenIcon Icon="pending" class="sitim-welcome-kpi-icon sitim-kpi-icon-amber" />
+            <div class="sitim-welcome-kpi-value sitim-kpi-value-amber">@_stats.InProgress</div>
+            <div class="sitim-welcome-kpi-label">
+                În procesare acum&nbsp;<span class="sitim-live-badge">live</span>
+            </div>
+        </RadzenCard>
+
+        @* Management metric — only meaningful for users who actually manage other users *@
+        @if (_isManager)
+        {
+            <RadzenCard class="sitim-welcome-kpi-card">
+                <RadzenIcon Icon="group" class="sitim-welcome-kpi-icon sitim-kpi-icon-violet" />
+                <div class="sitim-welcome-kpi-value sitim-kpi-value-violet">@_stats.ActiveUsers</div>
+                <div class="sitim-welcome-kpi-label">Utilizatori activi</div>
             </RadzenCard>
-        </RadzenColumn>
+        }
 
-        <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard>
-                <RadzenStack Gap="0.75rem">
-                    <RadzenIcon Icon="cloud_upload" style="font-size: 28px; color: var(--rz-info);" />
-                    <RadzenText Text="Import studii" TextStyle="TextStyle.H6" />
-                    <RadzenText Text="Încarcă fișiere DICOM sau arhive ZIP."
-                                TextStyle="TextStyle.Caption"
-                                style="color: var(--rz-text-tertiary-color);" />
-                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Secondary"
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     3. ACTIVITATE RECENTĂ
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="sitim-welcome-section">
+    <div class="sitim-welcome-activity-grid">
+
+        <RadzenCard class="sitim-welcome-activity-card">
+            <div class="sitim-welcome-card-header">
+                <RadzenIcon Icon="schedule" class="sitim-welcome-card-icon" />
+                <span class="sitim-welcome-card-title">Ultimele studii importate</span>
+            </div>
+            @if (_recentStudies.Count > 0)
+            {
+                <ul class="sitim-welcome-list">
+                    @foreach (var study in _recentStudies)
+                    {
+                        <li class="sitim-welcome-list-item" @onclick="@(() => Navigation.NavigateTo("/studies"))">
+                            <div class="sitim-welcome-list-primary">@study.Modality — @study.PatientLabel</div>
+                            <div class="sitim-welcome-list-secondary">@study.RelativeTime &middot; @study.Meta</div>
+                        </li>
+                    }
+                </ul>
+                <div class="sitim-welcome-card-footer">
+                    <span class="sitim-welcome-footer-link" @onclick="@(() => Navigation.NavigateTo("/studies"))">
+                        → Vezi toate studiile
+                    </span>
+                </div>
+            }
+            else
+            {
+                <div class="sitim-welcome-empty">
+                    <RadzenIcon Icon="folder_open" class="sitim-welcome-empty-icon" />
+                    <p>Niciun studiu importat încă.</p>
+                    <RadzenButton Text="Importă primul studiu" Icon="cloud_upload"
+                                  ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
                                   Click="@(() => Navigation.NavigateTo("/import"))" />
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
+                </div>
+            }
+        </RadzenCard>
 
-        <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard>
-                <RadzenStack Gap="0.75rem">
-                    <RadzenIcon Icon="science" style="font-size: 28px; color: var(--rz-success);" />
-                    <RadzenText Text="Analize" TextStyle="TextStyle.H6" />
-                    <RadzenText Text="Urmărește execuțiile și rezultatele."
-                                TextStyle="TextStyle.Caption"
-                                style="color: var(--rz-text-tertiary-color);" />
-                    <RadzenButton Text="Deschide" Icon="arrow_forward" ButtonStyle="ButtonStyle.Success"
-                                  Click="@(() => Navigation.NavigateTo("/ai-analyses"))" />
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-    </RadzenRow>
+        <RadzenCard class="sitim-welcome-activity-card">
+            <div class="sitim-welcome-card-header">
+                <RadzenIcon Icon="psychology" class="sitim-welcome-card-icon" />
+                <span class="sitim-welcome-card-title">Analize AI recente</span>
+            </div>
+            @if (_recentAnalyses.Count > 0)
+            {
+                <ul class="sitim-welcome-list">
+                    @foreach (var analysis in _recentAnalyses)
+                    {
+                        <li class="sitim-welcome-list-item" @onclick="@(() => Navigation.NavigateTo("/ai-analyses"))">
+                            <div class="sitim-welcome-list-primary">
+                                @analysis.AnalysisType
+                                <span class="sitim-welcome-confidence">@analysis.Confidence% confidence</span>
+                            </div>
+                            <div class="sitim-welcome-list-secondary">
+                                @analysis.StudyLabel &middot;
+                                <span class="sitim-dr-badge sitim-dr-@analysis.SeverityClass">@analysis.PredictedClass</span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+                <div class="sitim-welcome-card-footer">
+                    <span class="sitim-welcome-footer-link" @onclick="@(() => Navigation.NavigateTo("/ai-analyses"))">
+                        → Vezi toate analizele
+                    </span>
+                </div>
+            }
+            else
+            {
+                <div class="sitim-welcome-empty">
+                    <RadzenIcon Icon="science" class="sitim-welcome-empty-icon" />
+                    <p>Nicio analiză efectuată încă.</p>
+                    <RadzenButton Text="Pornește o analiză" Icon="play_arrow"
+                                  ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                                  Click="@(() => Navigation.NavigateTo("/studies"))" />
+                </div>
+            }
+        </RadzenCard>
 
-    @if (TokenStore.IsSuperAdmin || TokenStore.Roles.Contains("Admin"))
-    {
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     4. ACȚIUNI RAPIDE
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="sitim-welcome-section">
+    <div class="sitim-welcome-quick-grid">
+
+        <div class="sitim-welcome-quick-card" @onclick="@(() => Navigation.NavigateTo("/import"))">
+            <RadzenIcon Icon="cloud_upload" class="sitim-welcome-quick-icon" />
+            <span class="sitim-welcome-quick-label">Import studii</span>
+        </div>
+
+        <div class="sitim-welcome-quick-card" @onclick="@(() => Navigation.NavigateTo("/studies"))">
+            <RadzenIcon Icon="search" class="sitim-welcome-quick-icon" />
+            <span class="sitim-welcome-quick-label">Caută studiu</span>
+        </div>
+
+        <div class="sitim-welcome-quick-card" @onclick="@(() => Navigation.NavigateTo("/ai-analyses"))">
+            <RadzenIcon Icon="psychology" class="sitim-welcome-quick-icon" />
+            <span class="sitim-welcome-quick-label">Analize AI</span>
+        </div>
+
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     5. STATUS FOOTER
+     ═══════════════════════════════════════════════════════════════ -->
+<footer class="sitim-welcome-status">
+    <span class="sitim-status-pill sitim-status-ok">Sistem operațional</span>
+    <span class="sitim-status-sep">&middot;</span>
+    <span class="sitim-status-pill sitim-status-ok">PACS conectat</span>
+    <span class="sitim-status-sep">&middot;</span>
+    <span class="sitim-status-pill sitim-status-ok">AI Service activ</span>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ADMIN — vizibil doar pentru Admin / SuperAdmin
+     ═══════════════════════════════════════════════════════════════ -->
+@if (TokenStore.IsSuperAdmin || TokenStore.Roles.Contains("Admin"))
+{
+    <section class="sitim-welcome-section">
         <RadzenCard>
-            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                         JustifyContent="JustifyContent.SpaceBetween" Gap="0.75rem">
                 <RadzenText Text="Secțiuni administrative" TextStyle="TextStyle.Subtitle1" />
                 <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
                     <RadzenButton Text="Utilizatori" Icon="group" ButtonStyle="ButtonStyle.Light"
@@ -69,12 +214,120 @@
                         <RadzenButton Text="Instituții" Icon="business" ButtonStyle="ButtonStyle.Light"
                                       Click="@(() => Navigation.NavigateTo("/institutions"))" />
                         <RadzenButton Text="Modele AI" Icon="psychology" ButtonStyle="ButtonStyle.Light"
-                                  Click="@(() => Navigation.NavigateTo("/ai-models"))" />
+                                      Click="@(() => Navigation.NavigateTo("/ai-models"))" />
                         <RadzenButton Text="Federated Learning" Icon="hub" ButtonStyle="ButtonStyle.Light"
-                                  Click="@(() => Navigation.NavigateTo("/federated-learning"))" />
+                                      Click="@(() => Navigation.NavigateTo("/federated-learning"))" />
                     }
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
+    </section>
+}
+
+@code {
+    private string _greeting    = "";
+    private string _displayName = "";
+    private string _initials    = "?";
+    private string _dateString  = "";
+
+    /// <summary>
+    /// True when the current user can manage other users (Admin / SuperAdmin).
+    /// Doctors and Technicians don't have user-management context, so we hide
+    /// "Active users" — a metric meaningful only to people who can act on it.
+    /// </summary>
+    private bool _isManager => TokenStore.IsSuperAdmin || TokenStore.Roles.Contains("Admin");
+
+    // TODO: Replace with real API call to /api/dashboard/stats
+    private DashboardStats _stats = new()
+    {
+        StudiesThisMonth    = 142,
+        StudiesTrendPct     = 12,
+        AiAnalysesThisMonth = 28,
+        AiAnalysesTrendPct  = 5,
+        InProgress          = 3,
+        ActiveUsers         = 12
+    };
+
+    // TODO: Replace with real API call to /api/dashboard/recent-studies
+    private List<RecentStudy> _recentStudies =
+    [
+        new() { Modality = "CT Toracic",   PatientLabel = "Pacient #1245", RelativeTime = "acum 2 ore",  Meta = "128 imagini" },
+        new() { Modality = "RMN Cerebral", PatientLabel = "Pacient #1244", RelativeTime = "acum 5 ore",  Meta = "64 imagini"  },
+        new() { Modality = "Ecografie",    PatientLabel = "Pacient #1243", RelativeTime = "ieri, 14:30", Meta = "12 imagini"  },
+        new() { Modality = "Radiografie",  PatientLabel = "Pacient #1242", RelativeTime = "ieri, 09:15", Meta = "3 imagini"   },
+    ];
+
+    // TODO: Replace with real API call to /api/dashboard/recent-analyses
+    private List<RecentAnalysis> _recentAnalyses =
+    [
+        new() { AnalysisType = "Retinopatie", Confidence = 96, StudyLabel = "Studiu #8821", PredictedClass = "Moderate DR", SeverityClass = "moderate" },
+        new() { AnalysisType = "Retinopatie", Confidence = 99, StudyLabel = "Studiu #8820", PredictedClass = "No DR",       SeverityClass = "none"     },
+        new() { AnalysisType = "Retinopatie", Confidence = 87, StudyLabel = "Studiu #8819", PredictedClass = "Mild DR",     SeverityClass = "mild"     },
+        new() { AnalysisType = "Retinopatie", Confidence = 94, StudyLabel = "Studiu #8818", PredictedClass = "Severe DR",   SeverityClass = "severe"   },
+    ];
+
+    protected override void OnInitialized()
+    {
+        var now = DateTime.Now;
+
+        _greeting = now.Hour switch
+        {
+            >= 6 and < 12  => "Bună dimineața",
+            >= 12 and < 18 => "Bună ziua",
+            >= 18 and < 22 => "Bună seara",
+            _              => "Noapte bună"
+        };
+
+        var email = TokenStore.Email ?? "";
+        var local = email.Contains('@') ? email[..email.IndexOf('@')] : email;
+        var parts = local.Split(['.', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length >= 2)
+        {
+            _displayName = string.Join(" ", parts.Select(
+                p => p.Length > 0 ? char.ToUpper(p[0]) + p[1..].ToLower() : ""));
+            _initials = $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[1][0])}";
+        }
+        else if (parts.Length == 1 && parts[0].Length > 0)
+        {
+            _displayName = char.ToUpper(parts[0][0]) + parts[0][1..].ToLower();
+            _initials    = $"{char.ToUpper(parts[0][0])}";
+        }
+        else
+        {
+            _displayName = email;
+            _initials    = "?";
+        }
+
+        _dateString = now.ToString("dddd, d MMMM yyyy", new CultureInfo("ro-RO"));
+        if (_dateString.Length > 0)
+            _dateString = char.ToUpper(_dateString[0]) + _dateString[1..];
     }
-</RadzenStack>
+
+    private sealed class DashboardStats
+    {
+        public int StudiesThisMonth    { get; init; }
+        public int StudiesTrendPct     { get; init; }
+        public int AiAnalysesThisMonth { get; init; }
+        public int AiAnalysesTrendPct  { get; init; }
+        public int InProgress          { get; init; }
+        public int ActiveUsers         { get; init; }
+    }
+
+    private sealed class RecentStudy
+    {
+        public string Modality     { get; init; } = "";
+        public string PatientLabel { get; init; } = "";
+        public string RelativeTime { get; init; } = "";
+        public string Meta         { get; init; } = "";
+    }
+
+    private sealed class RecentAnalysis
+    {
+        public string AnalysisType   { get; init; } = "";
+        public int    Confidence     { get; init; }
+        public string StudyLabel     { get; init; } = "";
+        public string PredictedClass { get; init; } = "";
+        public string SeverityClass  { get; init; } = "none";
+    }
+}

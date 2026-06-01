@@ -73,7 +73,7 @@
                             </RadzenColumn>
                             <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
-                                    <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Primary" Variant="Variant.Text" Size="ButtonSize.Small"
+                                    <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" Size="ButtonSize.Small"
                                                   Click="@(() => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
                                     @if (IsAdminOrAbove)
                                     {
@@ -91,10 +91,10 @@
 </RadzenStack>
 
 @* ── Confirm delete dialog ── *@
-@if (_showDeleteDialog && _deleteTarget is not null)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;">
-        <RadzenCard Style="min-width:400px;max-width:520px;padding:2rem;box-shadow:var(--rz-shadow-4);">
+<SitimModal Show="@(_showDeleteDialog && _deleteTarget is not null)" OnClose="@CloseDeleteDialog">
+    @if (_deleteTarget is not null)
+    {
+        <RadzenCard Style="min-width:400px;max-width:520px;padding:2rem;">
             <RadzenStack Gap="1rem">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
                     <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
@@ -113,8 +113,8 @@
                 </RadzenStack>
             </RadzenStack>
         </RadzenCard>
-    </div>
-}
+    }
+</SitimModal>
 
 @code {
     private List<StudySummary> studies = [];

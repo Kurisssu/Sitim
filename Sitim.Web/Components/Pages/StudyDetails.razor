@@ -195,7 +195,7 @@ else
     private bool IsDoctor => TokenStore.Roles.Contains("Doctor") && !TokenStore.IsSuperAdmin;
 
     private Sitim.Core.Models.StudyDetails? study;
-    private List<SitimApiClient.AIAnalysisJobListItemDto> studyAnalyses = new();
+    private List<AIAnalysisJobListItemDto> studyAnalyses = new();
     private string? viewerUrl;
     private bool viewerUnavailable;
     private bool isLoading = true;
@@ -349,7 +349,7 @@ else
         }
     }
 
-    private void OpenStudyAnalysis(SitimApiClient.AIAnalysisJobListItemDto analysisJob)
+    private void OpenStudyAnalysis(AIAnalysisJobListItemDto analysisJob)
     {
         var path = analysisJob.Status == "Completed"
             ? $"/analysis/{analysisJob.Id}/results"

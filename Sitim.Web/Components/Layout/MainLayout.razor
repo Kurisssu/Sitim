@@ -11,6 +11,7 @@
 
 <AuthorizeView Context="authContext">
     <Authorized>
+        <div class="sitim-app-shell">
         <RadzenLayout>
             <RadzenHeader>
                 <RadzenRow JustifyContent="JustifyContent.Start" AlignItems="AlignItems.Center" Gap="0">
@@ -19,7 +20,7 @@
                             <div @onmouseenter="OnSidebarHandleMouseEnter">
                                 <RadzenSidebarToggle Click="@SidebarToggleClick"></RadzenSidebarToggle>
                             </div>
-                            <RadzenText Text="SITIM" TextStyle="TextStyle.H5" class="rz-mb-0 rz-display-none rz-display-sm-inline" style="color: var(--rz-text-color);" />
+                            <RadzenText Text="SITIM" TextStyle="TextStyle.H5" class="rz-mb-0 rz-display-none rz-display-sm-inline sitim-brand-text" />
                             @if (!string.IsNullOrWhiteSpace(TokenStore.InstitutionName))
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Secondary" Text="@TokenStore.InstitutionName" />
@@ -32,7 +33,6 @@
                             <RadzenText Text="@TokenStore.Email" TextStyle="TextStyle.Body2" class="rz-mb-0" style="color: var(--rz-text-color);" />
                             <RadzenBadge BadgeStyle="@RoleBadgeStyle()" Text="@string.Join(", ", TokenStore.Roles)" />
                             <RadzenButton Text="Deconectare" Icon="logout" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="@OnLogout" />
-                            <RadzenAppearanceToggle />
                         </RadzenStack>
                     </RadzenColumn>
                 </RadzenRow>
@@ -46,7 +46,7 @@
             </RadzenBody>
             <RadzenSidebar @bind-Expanded="@sidebarExpanded" @onmouseenter="OnSidebarMouseEnter" @onmouseleave="OnSidebarMouseLeave">
                 <RadzenStack AlignItems="Radzen.AlignItems.Center" class="rz-py-4 rz-py-lg-6" Style="padding: var(--rz-panel-menu-item-padding); border-bottom: var(--rz-panel-menu-item-border);">
-                    <RadzenIcon Icon="biotech" style="font-size: 60px; color: var(--rz-primary);" />
+                    <RadzenIcon Icon="biotech" class="sitim-sidebar-logo" style="font-size: 60px;" />
                     <RadzenText Text="Suportul diagnosticului imagistic" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
                 </RadzenStack>
                 <RadzenPanelMenu>
@@ -80,6 +80,8 @@
                 </RadzenPanelMenu>
             </RadzenSidebar>
         </RadzenLayout>
+        <SitimFooter />
+        </div>
     </Authorized>
     <NotAuthorized>
         @Body
