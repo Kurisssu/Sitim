@@ -464,11 +464,25 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
                 _db.ChangeTracker.Clear();
                 await Task.Delay(100 * attempt, cancellationToken);
             }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && IsUniqueViolation(ex))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Duplicate-key race while refreshing FL session {SessionId} (attempt {Attempt}/{MaxAttempts}); retrying.",
+                    sessionId,
+                    attempt,
+                    maxAttempts);
+                _db.ChangeTracker.Clear();
+                await Task.Delay(100 * attempt, cancellationToken);
+            }
         }
 
         throw new InvalidOperationException(
             $"Failed to refresh FL session {sessionId} after {maxAttempts} retries due to concurrent updates.");
     }
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: "23505" };
 
     private async Task HandleMissingExternalSessionAsync(
         Guid sessionId,
