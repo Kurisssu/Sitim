@@ -198,6 +198,7 @@ namespace Sitim.Infrastructure.Data
                 b.Property(x => x.RoundNumber).HasColumnName("round_number").IsRequired();
                 b.Property(x => x.AggregatedLoss).HasColumnName("aggregated_loss").HasPrecision(8, 6);
                 b.Property(x => x.AggregatedAccuracy).HasColumnName("aggregated_accuracy").HasPrecision(5, 4);
+                b.Property(x => x.AggregatedMacroF1).HasColumnName("aggregated_macro_f1").HasPrecision(5, 4);
                 b.Property(x => x.CompletedAtUtc).HasColumnName("completed_at_utc");
 
                 b.HasOne(x => x.Session)
@@ -215,6 +216,7 @@ namespace Sitim.Infrastructure.Data
 
                 b.Property(x => x.Status).HasColumnName("status").IsRequired();
                 b.Property(x => x.LastHeartbeatUtc).HasColumnName("last_heartbeat_utc");
+                b.Property(x => x.ClassHistogramJson).HasColumnName("class_histogram_json");
 
                 b.HasOne(x => x.Session)
                     .WithMany(s => s.Participants)
@@ -237,11 +239,12 @@ namespace Sitim.Infrastructure.Data
                 b.Property(x => x.RoundNumber).HasColumnName("round_number").IsRequired();
                 b.Property(x => x.TrainingLoss).HasColumnName("training_loss").HasPrecision(8, 6);
                 b.Property(x => x.ValidationAccuracy).HasColumnName("validation_accuracy").HasPrecision(5, 4);
+                b.Property(x => x.PayloadBytes).HasColumnName("payload_bytes");
                 b.Property(x => x.UpdateArtifactPath).HasColumnName("update_artifact_path").HasMaxLength(512);
                 b.Property(x => x.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
 
                 b.HasOne(x => x.Session)
-                    .WithMany()
+                    .WithMany(s => s.ModelUpdates)
                     .HasForeignKey(x => x.SessionId)
                     .OnDelete(DeleteBehavior.Cascade);
 

@@ -29,17 +29,10 @@ namespace Sitim.Infrastructure.Migrations
                 type: "uuid",
                 nullable: true);
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "created_by_user_id",
-                table: "analysis_jobs",
-                type: "uuid",
-                nullable: true);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "institution_id",
-                table: "analysis_jobs",
-                type: "uuid",
-                nullable: true);
+            // NOTE: columns/index for the legacy "analysis_jobs" table removed here.
+            // That table's create migration was never committed, so it does not exist
+            // on a fresh database. It is dropped later and is not part of the final
+            // schema. See AddAnalysisJobs / RemoveLegacyAnalysisJobsTable.
 
             migrationBuilder.CreateTable(
                 name: "institutions",
@@ -65,11 +58,6 @@ namespace Sitim.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_imaging_studies_institution_id",
                 table: "imaging_studies",
-                column: "institution_id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_analysis_jobs_institution_id",
-                table: "analysis_jobs",
                 column: "institution_id");
 
             migrationBuilder.CreateIndex(
@@ -99,10 +87,6 @@ namespace Sitim.Infrastructure.Migrations
                 name: "IX_imaging_studies_institution_id",
                 table: "imaging_studies");
 
-            migrationBuilder.DropIndex(
-                name: "IX_analysis_jobs_institution_id",
-                table: "analysis_jobs");
-
             migrationBuilder.DropColumn(
                 name: "institution_id",
                 table: "patients");
@@ -114,14 +98,6 @@ namespace Sitim.Infrastructure.Migrations
             migrationBuilder.DropColumn(
                 name: "InstitutionId",
                 table: "AspNetUsers");
-
-            migrationBuilder.DropColumn(
-                name: "created_by_user_id",
-                table: "analysis_jobs");
-
-            migrationBuilder.DropColumn(
-                name: "institution_id",
-                table: "analysis_jobs");
         }
     }
 }

@@ -1,5 +1,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Net.Http.Headers
+@using System.Text.Json
+@using Sitim.Web.Models
 @using Sitim.Web.Services
 @inject SitimApiClient ApiClient
 @inject NotificationService NotificationService
@@ -110,6 +112,11 @@
                 <RadzenText TextStyle="TextStyle.Body2">@(model.IsActive ? "Activat imediat după încărcare" : "Salvează ca inactiv")</RadzenText>
             </RadzenStack>
 
+            <RadzenColumn Size="12"><hr class="rz-my-2" /></RadzenColumn>
+
+            <!-- Per-class interpretation: severity + recommendations -->
+            <ClassInterpretationEditor Rows="@classRows" />
+
             <!-- Buttons -->
             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End" class="rz-mt-4">
                 <RadzenButton Text="Anulează" 
@@ -138,6 +145,7 @@
     [Parameter] public EventCallback OnUploadComplete { get; set; }
 
     private UploadModelForm model = new();
+    private List<ClassInterpretationRow> classRows = new();
     private IBrowserFile? selectedFile;
     private string fileName = string.Empty;
     private long fileSize = 0;
@@ -212,6 +220,19 @@
                 content.Add(new StringContent(model.InputShape), "InputShape");
             if (!string.IsNullOrWhiteSpace(model.TrainingSource))
                 content.Add(new StringContent(model.TrainingSource), "TrainingSource");
+
+            // Per-class interpretation metadata (names + severities + recommendations).
+            // Serialized into the JSON shapes the API stores; only sent when at least
+            // one class is defined, so existing behaviour is unchanged for empty input.
+            if (ClassInterpretation.HasAny(classRows))
+            {
+                var definedRows = classRows.Where(r => !string.IsNullOrWhiteSpace(r.Name)).ToList();
+                content.Add(new StringContent(JsonSerializer.Serialize(ClassInterpretation.Names(definedRows))), "ClassNames");
+                content.Add(new StringContent(JsonSerializer.Serialize(ClassInterpretation.Severities(definedRows))), "ClassSeverities");
+                content.Add(new StringContent(JsonSerializer.Serialize(ClassInterpretation.Recommendations(definedRows))), "ClassRecommendations");
+                if (!model.NumClasses.HasValue)
+                    content.Add(new StringContent(definedRows.Count.ToString()), "NumClasses");
+            }
 
             uploadProgress = 50; // Simulated progress
 

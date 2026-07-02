@@ -34,6 +34,20 @@ public sealed record AIModelDto(
     string? OnnxInputSpec = null,
     string? OnnxOutputSpec = null);
 
+/// <summary>
+/// Editable interpretation/clinical metadata for an existing AI model.
+/// Sent by the model-management UI to PUT /api/ai/models/{id}/metadata.
+/// Arrays are aligned by class index: ClassNames[i], ClassSeverities[i] and
+/// ClassRecommendations[i] all describe output class i.
+/// </summary>
+public sealed record UpdateModelMetadataRequest(
+    string Name,
+    string? Description,
+    string? TargetModality,
+    string[]? ClassNames,
+    string[]? ClassSeverities,
+    string[][]? ClassRecommendations);
+
 /// <summary>Lightweight model entry used in the model-selection dialog (UI).</summary>
 public sealed record AIModelSelectionDto(
     Guid Id,

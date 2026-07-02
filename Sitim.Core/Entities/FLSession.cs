@@ -37,6 +37,7 @@ public sealed class FLSession
 
     public ICollection<FLRound> Rounds { get; set; } = new List<FLRound>();
     public ICollection<FLParticipant> Participants { get; set; } = new List<FLParticipant>();
+    public ICollection<FLModelUpdate> ModelUpdates { get; set; } = new List<FLModelUpdate>();
 }
 
 public enum FLSessionStatus

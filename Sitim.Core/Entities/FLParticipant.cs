@@ -15,6 +15,12 @@ public sealed class FLParticipant
 
     public FLParticipantStatus Status { get; set; } = FLParticipantStatus.Invited;
     public DateTime? LastHeartbeatUtc { get; set; }
+
+    /// <summary>
+    /// Per-class sample counts reported by this institution's FL client, as JSON
+    /// (e.g. {"0":120,"1":35,...}). Source for the class-distribution metric.
+    /// </summary>
+    public string? ClassHistogramJson { get; set; }
 }
 
 public enum FLParticipantStatus

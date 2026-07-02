@@ -15,5 +15,11 @@ public sealed class FLRound
     public decimal? AggregatedLoss { get; set; }
     public decimal? AggregatedAccuracy { get; set; }
 
+    /// <summary>
+    /// Macro-averaged F1 over all classes, aggregated across clients (weighted by
+    /// example count). Mirrors the control plane's <c>aggregated_macro_f1</c>.
+    /// </summary>
+    public decimal? AggregatedMacroF1 { get; set; }
+
     public DateTime? CompletedAtUtc { get; set; }
 }

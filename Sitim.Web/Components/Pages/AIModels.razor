@@ -101,6 +101,11 @@
                                               Size="ButtonSize.Small"
                                               Click="@(() => ShowModelDetails(model))"
                                               title="Detalii" />
+                                <RadzenButton Icon="edit"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Size="ButtonSize.Small"
+                                              Click="@(() => ShowEditDialog(model))"
+                                              title="Editează clase și recomandări" />
                                 <RadzenButton Icon="@(model.IsActive ? "toggle_on" : "toggle_off")"
                                               ButtonStyle="ButtonStyle.Light"
                                               Size="ButtonSize.Small"
@@ -182,6 +187,28 @@
                 ShowClose = true
             }
         );
+    }
+
+    private async Task ShowEditDialog(AIModelDto model)
+    {
+        var result = await DialogService.OpenAsync<EditModelMetadataDialog>(
+            "Editează Model AI",
+            new Dictionary<string, object> { { "Model", model } },
+            new DialogOptions
+            {
+                Width = "700px",
+                Height = "auto",
+                Resizable = false,
+                Draggable = false,
+                CloseDialogOnEsc = true,
+                ShowClose = true
+            }
+        );
+
+        if (result == true)
+        {
+            await LoadModels();
+        }
     }
 
     private async Task ToggleModelStatus(AIModelDto model)

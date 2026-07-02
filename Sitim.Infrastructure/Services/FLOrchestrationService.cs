@@ -332,6 +332,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
         return await _db.FLSessions
             .AsNoTracking()
             .Include(s => s.Rounds.OrderBy(r => r.RoundNumber))
+            .Include(s => s.ModelUpdates)
             .Include(s => s.Participants)
             .ThenInclude(p => p.Institution)
             .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
@@ -440,6 +441,7 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
                 var session = await _db.FLSessions
                     .Include(s => s.Rounds)
                     .Include(s => s.Participants)
+                    .Include(s => s.ModelUpdates)
                     .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
 
                 if (session is null)
@@ -566,7 +568,35 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
 
             existing.AggregatedLoss = round.AggregatedLoss.HasValue ? Convert.ToDecimal(round.AggregatedLoss.Value) : null;
             existing.AggregatedAccuracy = round.AggregatedAccuracy.HasValue ? Convert.ToDecimal(round.AggregatedAccuracy.Value) : null;
+            existing.AggregatedMacroF1 = round.AggregatedMacroF1.HasValue ? Convert.ToDecimal(round.AggregatedMacroF1.Value) : null;
             existing.CompletedAtUtc = round.CompletedAtUtc;
+
+            // Per-client communication cost (and per-client loss/accuracy) for this round.
+            foreach (var update in round.ClientUpdates ?? [])
+            {
+                if (!Guid.TryParse(update.InstitutionId, out var institutionId))
+                    continue;
+
+                var modelUpdate = session.ModelUpdates.FirstOrDefault(
+                    m => m.RoundNumber == round.RoundNumber && m.InstitutionId == institutionId);
+                if (modelUpdate is null)
+                {
+                    modelUpdate = new FLModelUpdate
+                    {
+                        Id = Guid.NewGuid(),
+                        SessionId = session.Id,
+                        InstitutionId = institutionId,
+                        RoundNumber = round.RoundNumber,
+                        CreatedAtUtc = DateTime.UtcNow
+                    };
+                    _db.FLModelUpdates.Add(modelUpdate);
+                    session.ModelUpdates.Add(modelUpdate);
+                }
+
+                modelUpdate.PayloadBytes = update.PayloadBytes;
+                modelUpdate.TrainingLoss = update.TrainingLoss.HasValue ? Convert.ToDecimal(update.TrainingLoss.Value) : modelUpdate.TrainingLoss;
+                modelUpdate.ValidationAccuracy = update.ValidationAccuracy.HasValue ? Convert.ToDecimal(update.ValidationAccuracy.Value) : modelUpdate.ValidationAccuracy;
+            }
         }
     }
 
@@ -593,6 +623,8 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
 
             existing.Status = MapParticipantStatus(participantState.Status);
             existing.LastHeartbeatUtc = participantState.LastHeartbeatUtc ?? existing.LastHeartbeatUtc;
+            if (!string.IsNullOrWhiteSpace(participantState.ClassHistogram))
+                existing.ClassHistogramJson = participantState.ClassHistogram;
         }
     }
 
@@ -931,16 +963,25 @@ public sealed class FLOrchestrationService : IFLOrchestrationService
         [property: JsonPropertyName("min_fit_clients")] int MinFitClients,
         [property: JsonPropertyName("min_evaluate_clients")] int MinEvaluateClients);
 
+    private sealed record ExternalClientUpdateDto(
+        [property: JsonPropertyName("institution_id")] string InstitutionId,
+        [property: JsonPropertyName("payload_bytes")] long? PayloadBytes,
+        [property: JsonPropertyName("training_loss")] double? TrainingLoss,
+        [property: JsonPropertyName("validation_accuracy")] double? ValidationAccuracy);
+
     private sealed record ExternalRoundStatusDto(
         [property: JsonPropertyName("round_number")] int RoundNumber,
         [property: JsonPropertyName("aggregated_loss")] double? AggregatedLoss,
         [property: JsonPropertyName("aggregated_accuracy")] double? AggregatedAccuracy,
-        [property: JsonPropertyName("completed_at_utc")] DateTime? CompletedAtUtc);
+        [property: JsonPropertyName("aggregated_macro_f1")] double? AggregatedMacroF1,
+        [property: JsonPropertyName("completed_at_utc")] DateTime? CompletedAtUtc,
+        [property: JsonPropertyName("client_updates")] List<ExternalClientUpdateDto>? ClientUpdates);
 
     private sealed record ExternalParticipantStatusDto(
         [property: JsonPropertyName("institution_id")] string InstitutionId,
         [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("last_heartbeat_utc")] DateTime? LastHeartbeatUtc);
+        [property: JsonPropertyName("last_heartbeat_utc")] DateTime? LastHeartbeatUtc,
+        [property: JsonPropertyName("class_histogram")] string? ClassHistogram);
 
     private sealed record ExternalClientStatusDto(
         [property: JsonPropertyName("institution_id")] string InstitutionId,

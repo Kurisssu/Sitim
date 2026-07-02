@@ -156,8 +156,23 @@ public sealed class FederatedLearningController : ControllerBase
             session.StartedAtUtc,
             session.FinishedAtUtc);
 
-    private static FLSessionDetailsDto MapSessionDetails(FLSession session) =>
-        new(
+    private static FLSessionDetailsDto MapSessionDetails(FLSession session)
+    {
+        // Per-round communication cost = sum of client payloads reported that round.
+        var payloadByRound = session.ModelUpdates
+            .Where(m => m.PayloadBytes.HasValue)
+            .GroupBy(m => m.RoundNumber)
+            .ToDictionary(g => g.Key, g => g.Sum(m => m.PayloadBytes!.Value));
+
+        var updatesWithPayload = session.ModelUpdates.Count(m => m.PayloadBytes.HasValue);
+        long totalCommunicationBytes = session.ModelUpdates
+            .Where(m => m.PayloadBytes.HasValue)
+            .Sum(m => m.PayloadBytes!.Value);
+        double avgPayloadPerClientPerRound = updatesWithPayload > 0
+            ? (double)totalCommunicationBytes / updatesWithPayload
+            : 0d;
+
+        return new(
             session.Id,
             session.ModelKey,
             session.Status.ToString(),
@@ -175,7 +190,8 @@ public sealed class FederatedLearningController : ControllerBase
                     p.InstitutionId,
                     p.Institution.Name,
                     p.Status.ToString(),
-                    p.LastHeartbeatUtc))
+                    p.LastHeartbeatUtc,
+                    p.ClassHistogramJson))
                 .ToList(),
             session.Rounds
                 .OrderBy(r => r.RoundNumber)
@@ -183,8 +199,13 @@ public sealed class FederatedLearningController : ControllerBase
                     r.RoundNumber,
                     r.AggregatedLoss,
                     r.AggregatedAccuracy,
+                    r.AggregatedMacroF1,
+                    payloadByRound.TryGetValue(r.RoundNumber, out var bytes) ? bytes : null,
                     r.CompletedAtUtc))
-                .ToList());
+                .ToList(),
+            totalCommunicationBytes,
+            avgPayloadPerClientPerRound);
+    }
 }
 
 

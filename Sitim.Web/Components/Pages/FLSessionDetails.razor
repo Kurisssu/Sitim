@@ -174,6 +174,10 @@
                                           CategoryProperty="RoundNumber"
                                           ValueProperty="AggregatedAccuracy"
                                           Title="Accuracy" />
+                        <RadzenLineSeries Data="@_session.Rounds.OrderBy(r => r.RoundNumber).ToList()"
+                                          CategoryProperty="RoundNumber"
+                                          ValueProperty="AggregatedMacroF1"
+                                          Title="F1 macro" />
                         <RadzenCategoryAxis>
                             <RadzenAxisTitle Text="Runda" />
                         </RadzenCategoryAxis>
@@ -189,6 +193,7 @@
                                     <th style="padding:0.5rem;">Runda</th>
                                     <th style="padding:0.5rem;">Loss agregat</th>
                                     <th style="padding:0.5rem;">Accuracy agregat</th>
+                                    <th style="padding:0.5rem;">F1 macro agregat</th>
                                     <th style="padding:0.5rem;">Finalizată la</th>
                                 </tr>
                             </thead>
@@ -199,7 +204,115 @@
                                         <td style="padding:0.5rem;">@round.RoundNumber</td>
                                         <td style="padding:0.5rem;">@(round.AggregatedLoss?.ToString("0.000000") ?? "—")</td>
                                         <td style="padding:0.5rem;">@(round.AggregatedAccuracy?.ToString("0.0000") ?? "—")</td>
+                                        <td style="padding:0.5rem;">@(round.AggregatedMacroF1?.ToString("0.0000") ?? "—")</td>
                                         <td style="padding:0.5rem;">@(round.CompletedAtUtc.HasValue ? FormatDateTime(round.CompletedAtUtc.Value) : "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Cost de comunicare" TextStyle="TextStyle.H6" />
+                <RadzenText TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);">
+                    Volumul de parametri transmiși de clienți.
+                </RadzenText>
+                <RadzenRow Gap="1rem">
+                    <RadzenColumn Size="6" SizeMD="3">
+                        <RadzenText Text="Total sesiune" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@FormatMb(_session.TotalCommunicationBytes)" TextStyle="TextStyle.Body1" />
+                    </RadzenColumn>
+                    <RadzenColumn Size="6" SizeMD="4">
+                        <RadzenText Text="Mediu / client / rundă" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@FormatMb((long)_session.AvgPayloadBytesPerClientPerRound)" TextStyle="TextStyle.Body1" />
+                    </RadzenColumn>
+                </RadzenRow>
+                @{
+                    var roundsWithPayload = _session.Rounds
+                        .Where(r => r.RoundPayloadBytes.HasValue)
+                        .OrderBy(r => r.RoundNumber)
+                        .Select(r => new RoundCost(r.RoundNumber, r.RoundPayloadBytes!.Value / (1024.0 * 1024.0)))
+                        .ToList();
+                }
+                @if (roundsWithPayload.Any())
+                {
+                    <RadzenChart>
+                        <RadzenColumnSeries Data="@roundsWithPayload"
+                                            CategoryProperty="RoundNumber"
+                                            ValueProperty="Mb"
+                                            Title="MB / rundă" />
+                        <RadzenCategoryAxis>
+                            <RadzenAxisTitle Text="Runda" />
+                        </RadzenCategoryAxis>
+                        <RadzenValueAxis>
+                            <RadzenAxisTitle Text="MB transmiși" />
+                        </RadzenValueAxis>
+                    </RadzenChart>
+                }
+                else
+                {
+                    <RadzenText Text="Nu există încă date de cost de comunicare." TextStyle="TextStyle.Body2" />
+                }
+            </RadzenStack>
+        </RadzenCard>
+
+        <RadzenCard>
+            <RadzenStack Gap="0.75rem">
+                <RadzenText Text="Distribuția claselor pe instituții (non-IID)" TextStyle="TextStyle.H6" />
+                @{
+                    var histograms = ParseHistograms();
+                    var allClasses = histograms.Values.SelectMany(h => h.Keys).Distinct().OrderBy(c => c).ToList();
+                }
+                @if (!histograms.Any() || !allClasses.Any())
+                {
+                    <RadzenText Text="Distribuția claselor nu a fost încă raportată de clienți." TextStyle="TextStyle.Body2" />
+                }
+                else
+                {
+                    <RadzenChart>
+                        @foreach (var participant in _session.Participants.OrderBy(p => p.InstitutionName))
+                        {
+                            if (histograms.TryGetValue(participant.InstitutionId, out var hist))
+                            {
+                                var data = allClasses.Select(c => new ClassBucket($"Clasa {c}", hist.GetValueOrDefault(c, 0))).ToList();
+                                <RadzenColumnSeries Data="@data" CategoryProperty="ClassLabel" ValueProperty="Count" Title="@participant.InstitutionName" />
+                            }
+                        }
+                        <RadzenCategoryAxis>
+                            <RadzenAxisTitle Text="Clasă" />
+                        </RadzenCategoryAxis>
+                        <RadzenValueAxis>
+                            <RadzenAxisTitle Text="Număr exemple" />
+                        </RadzenValueAxis>
+                    </RadzenChart>
+
+                    <div style="overflow:auto;">
+                        <table class="rz-datatable-tablewrapper" style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr style="text-align:left;border-bottom:1px solid var(--rz-base-300);">
+                                    <th style="padding:0.5rem;">Instituție</th>
+                                    @foreach (var c in allClasses)
+                                    {
+                                        <th style="padding:0.5rem;">Clasa @c</th>
+                                    }
+                                    <th style="padding:0.5rem;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var participant in _session.Participants.OrderBy(p => p.InstitutionName))
+                                {
+                                    var hist = histograms.GetValueOrDefault(participant.InstitutionId) ?? new Dictionary<int, int>();
+                                    <tr style="border-bottom:1px solid var(--rz-base-200);">
+                                        <td style="padding:0.5rem;">@participant.InstitutionName</td>
+                                        @foreach (var c in allClasses)
+                                        {
+                                            <td style="padding:0.5rem;">@hist.GetValueOrDefault(c, 0)</td>
+                                        }
+                                        <td style="padding:0.5rem;"><strong>@hist.Values.Sum()</strong></td>
                                     </tr>
                                 }
                             </tbody>
@@ -325,6 +438,43 @@
     };
 
     private static string FormatDateTime(DateTime value) => value.ToString("yyyy-MM-dd HH:mm:ss");
+
+    private static string FormatMb(long bytes) => $"{bytes / (1024.0 * 1024.0):0.00} MB";
+
+    /// <summary>Parses each participant's ClassHistogramJson ({"0":n,...}) into class->count.</summary>
+    private Dictionary<Guid, Dictionary<int, int>> ParseHistograms()
+    {
+        var result = new Dictionary<Guid, Dictionary<int, int>>();
+        if (_session is null) return result;
+
+        foreach (var participant in _session.Participants)
+        {
+            if (string.IsNullOrWhiteSpace(participant.ClassHistogramJson))
+                continue;
+            try
+            {
+                var raw = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(participant.ClassHistogramJson);
+                if (raw is null) continue;
+                var parsed = new Dictionary<int, int>();
+                foreach (var kvp in raw)
+                {
+                    if (int.TryParse(kvp.Key, out var cls))
+                        parsed[cls] = kvp.Value;
+                }
+                if (parsed.Count > 0)
+                    result[participant.InstitutionId] = parsed;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Ignore malformed histogram JSON; just skip that participant.
+            }
+        }
+        return result;
+    }
+
+    private sealed record RoundCost(int RoundNumber, double Mb);
+
+    private sealed record ClassBucket(string ClassLabel, int Count);
 
     public ValueTask DisposeAsync()
     {

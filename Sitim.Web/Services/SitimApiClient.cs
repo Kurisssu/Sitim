@@ -362,6 +362,20 @@ public sealed class SitimApiClient
         return resp.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// Update an existing model's interpretation metadata (class names, severities,
+    /// recommendations). Returns the API error message on failure, or null on success.
+    /// </summary>
+    public async Task<string?> UpdateModelMetadataAsync(Guid modelId, UpdateModelMetadataRequest request)
+    {
+        AttachToken();
+        var resp = await _http.PutAsJsonAsync($"api/ai/models/{modelId}/metadata", request, JsonOpts);
+        if (resp.IsSuccessStatusCode)
+            return null;
+        var body = await resp.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(body) ? $"HTTP {(int)resp.StatusCode}" : body;
+    }
+
     public async Task<List<AIModelDto>> GetActiveModelsAsync()
     {
         AttachToken();

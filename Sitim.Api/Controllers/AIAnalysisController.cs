@@ -646,6 +646,84 @@ public class AIAnalysisController : ControllerBase
     }
 
     /// <summary>
+    /// Update a model's interpretation/clinical metadata (Admin/SuperAdmin only).
+    /// Lets an admin set or correct the per-class names, severities and clinical
+    /// recommendations used to render analysis results — including for pre-loaded
+    /// models that were imported without this metadata. The ONNX file is untouched.
+    /// </summary>
+    [HttpPut("models/{id:guid}/metadata")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<ActionResult<AIModelDto>> UpdateModelMetadata(
+        Guid id,
+        [FromBody] UpdateModelMetadataRequest request,
+        CancellationToken cancellationToken)
+    {
+        var model = await _context.AIModels.FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+        if (model == null)
+            return NotFound(new { error = "Model not found" });
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { error = "Name is required" });
+
+        // Per-class arrays must line up by index so result interpretation stays consistent.
+        var classCount = request.ClassNames?.Length ?? 0;
+        if (classCount > 0)
+        {
+            if (request.ClassSeverities is { Length: var sev } && sev != classCount)
+                return BadRequest(new { error = "ClassSeverities length must match ClassNames length." });
+            if (request.ClassRecommendations is { Length: var rec } && rec != classCount)
+                return BadRequest(new { error = "ClassRecommendations length must match ClassNames length." });
+        }
+
+        model.Name = request.Name.Trim();
+        model.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        model.TargetModality = string.IsNullOrWhiteSpace(request.TargetModality) ? null : request.TargetModality.Trim();
+
+        model.ClassNames = classCount > 0 ? JsonSerializer.Serialize(request.ClassNames) : null;
+        model.ClassSeverities = request.ClassSeverities is { Length: > 0 }
+            ? JsonSerializer.Serialize(request.ClassSeverities) : null;
+        model.ClassRecommendations = request.ClassRecommendations is { Length: > 0 }
+            ? JsonSerializer.Serialize(request.ClassRecommendations) : null;
+
+        if (classCount > 0)
+        {
+            model.NumClasses = classCount;
+            model.NumOutputClasses = classCount;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Model {ModelId} metadata updated ({Classes} classes) by admin", id, classCount);
+
+        return Ok(new AIModelDto(
+            model.Id,
+            model.Name,
+            model.Description,
+            model.Task,
+            model.Version,
+            model.StorageFileName,
+            model.Accuracy,
+            model.IsActive,
+            model.NumClasses,
+            model.InputShape,
+            model.TrainingSource,
+            model.CreatedAt,
+            model.TargetModality,
+            model.ClassNames,
+            model.ClassSeverities,
+            model.ClassRecommendations,
+            model.SupportedRegions,
+            model.DetectablePathologies,
+            model.PreprocessingMethod,
+            model.PreprocessingMean,
+            model.PreprocessingStd,
+            model.PreprocessingImageSize,
+            model.OnnxInputSpec,
+            model.OnnxOutputSpec));
+    }
+
+    /// <summary>
     /// Toggle model active status (Admin/SuperAdmin only)
     /// </summary>
     [HttpPatch("models/{id:guid}/toggle")]

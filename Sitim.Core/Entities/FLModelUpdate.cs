@@ -20,6 +20,12 @@ public sealed class FLModelUpdate
     public decimal? ValidationAccuracy { get; set; }
 
     /// <summary>
+    /// Bytes this client transmitted for this round (the model parameters payload).
+    /// Source for the federated communication-cost metric.
+    /// </summary>
+    public long? PayloadBytes { get; set; }
+
+    /// <summary>
     /// Artifact path/key where client update payload is stored (if persisted).
     /// </summary>
     public string? UpdateArtifactPath { get; set; }
