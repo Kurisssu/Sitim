@@ -23,6 +23,8 @@ namespace Sitim.Api.Controllers
     [Route("api/studies")]
     public sealed class StudiesImportController : ControllerBase
     {
+        private const string PacsUnavailableMessage = "The PACS server (Orthanc) is currently unavailable.";
+
         private readonly IOrthancClientFactory _orthancFactory;
         private readonly IStudyCacheService _cache;
         private readonly AppDbContext _db;
@@ -72,7 +74,7 @@ namespace Sitim.Api.Controllers
 
             var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
             if (orthanc is null)
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
 
             var errors = new List<string>();
             var parentStudies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

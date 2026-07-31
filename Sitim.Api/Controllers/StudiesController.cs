@@ -15,6 +15,8 @@ namespace Sitim.Api.Controllers
     [Route("api/studies")]
     public sealed class StudiesController : ControllerBase
     {
+        private const string PacsUnavailableMessage = "The PACS server (Orthanc) is currently unavailable.";
+
         private readonly IOrthancClientFactory _orthancFactory;
         private readonly OhifOptions _ohif;
         private readonly IStudyCacheService _cache;
@@ -44,7 +46,7 @@ namespace Sitim.Api.Controllers
         {
             var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
             if (orthanc is null)
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
 
             IReadOnlyList<string> ids;
             try
@@ -53,7 +55,7 @@ namespace Sitim.Api.Controllers
             }
             catch (HttpRequestException)
             {
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
             }
 
             // Fetch minimal details with limited parallelism (avoid hammering Orthanc)
@@ -100,7 +102,7 @@ namespace Sitim.Api.Controllers
         {
             var orthanc = await _orthancFactory.CreateClientForCurrentTenantAsync(ct);
             if (orthanc is null)
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
 
             OrthancStudyDetails? d;
             try
@@ -109,7 +111,7 @@ namespace Sitim.Api.Controllers
             }
             catch (HttpRequestException)
             {
-                return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
             }
 
             if (d is null) return NotFound("Study not found in Orthanc.");
@@ -144,7 +146,7 @@ namespace Sitim.Api.Controllers
                 }
                 catch (HttpRequestException)
                 {
-                    return StatusCode(503, new { error = "Orthanc unavailable", message = "Serverul PACS (Orthanc) nu este disponibil momentan." });
+                    return StatusCode(503, new { error = "Orthanc unavailable", message = PacsUnavailableMessage });
                 }
             }
 

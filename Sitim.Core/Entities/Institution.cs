@@ -9,7 +9,7 @@ namespace Sitim.Core.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
-        /// <summary>Display name, e.g. "Spitalul Clinic Județean Cluj".</summary>
+        /// <summary>Display name, e.g. "Cluj County Clinical Hospital".</summary>
         public string Name { get; set; } = default!;
 
         /// <summary>URL-safe unique identifier, e.g. "scj-cluj". Used in logging and API paths.</summary>

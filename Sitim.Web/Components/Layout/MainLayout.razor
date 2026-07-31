@@ -6,6 +6,7 @@
 @inject NotificationService NotificationService
 @inject AuthTokenStore TokenStore
 @inject SitimApiClient Api
+@inject IStringLocalizer<SharedResource> L
 
 <RadzenComponents />
 
@@ -32,7 +33,8 @@
                             <RadzenIcon Icon="person" style="color: var(--rz-text-color);" />
                             <RadzenText Text="@TokenStore.Email" TextStyle="TextStyle.Body2" class="rz-mb-0" style="color: var(--rz-text-color);" />
                             <RadzenBadge BadgeStyle="@RoleBadgeStyle()" Text="@string.Join(", ", TokenStore.Roles)" />
-                            <RadzenButton Text="Deconectare" Icon="logout" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="@OnLogout" />
+                            <LanguageSwitcher />
+                            <RadzenButton Text="@L["Nav.Logout"]" Icon="logout" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Click="@OnLogout" />
                         </RadzenStack>
                     </RadzenColumn>
                 </RadzenRow>
@@ -47,32 +49,32 @@
             <RadzenSidebar @bind-Expanded="@sidebarExpanded" @onmouseenter="OnSidebarMouseEnter" @onmouseleave="OnSidebarMouseLeave">
                 <RadzenStack AlignItems="Radzen.AlignItems.Center" class="rz-py-4 rz-py-lg-6" Style="padding: var(--rz-panel-menu-item-padding); border-bottom: var(--rz-panel-menu-item-border);">
                     <RadzenIcon Icon="biotech" class="sitim-sidebar-logo" style="font-size: 60px;" />
-                    <RadzenText Text="Suportul diagnosticului imagistic" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@L["Nav.Tagline"]" TextStyle="TextStyle.Caption" class="rz-mb-0" style="color: var(--rz-text-tertiary-color);" />
                 </RadzenStack>
                 <RadzenPanelMenu>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Bun venit" Icon="home" Path="" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Welcome"]" Icon="home" Path="" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Lista de studii" Icon="list_alt" Path="studies" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Studies"]" Icon="list_alt" Path="studies" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Import studii" Icon="cloud_upload" Path="import" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Import"]" Icon="cloud_upload" Path="import" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin,Doctor,Technician">
-                        <RadzenPanelMenuItem Text="Analize AI" Icon="analytics" Path="ai-analyses" />
+                        <RadzenPanelMenuItem Text="@L["Nav.AIAnalyses"]" Icon="analytics" Path="ai-analyses" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin">
-                        <RadzenPanelMenuItem Text="Utilizatori" Icon="group" Path="users" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Users"]" Icon="group" Path="users" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin">
-                        <RadzenPanelMenuItem Text="Administrare" Icon="admin_panel_settings" Path="admin" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Admin"]" Icon="admin_panel_settings" Path="admin" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin">
-                        <RadzenPanelMenuItem Text="Instituții" Icon="business" Path="institutions" />
+                        <RadzenPanelMenuItem Text="@L["Nav.Institutions"]" Icon="business" Path="institutions" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin,Admin">
-                        <RadzenPanelMenuItem Text="Modele AI" Icon="psychology" Path="ai-models" />
+                        <RadzenPanelMenuItem Text="@L["Nav.AIModels"]" Icon="psychology" Path="ai-models" />
                     </AuthorizeView>
                     <AuthorizeView Roles="SuperAdmin">
                         <RadzenPanelMenuItem Text="@GetFederatedLearningMenuText()" Icon="hub" Path="federated-learning" />

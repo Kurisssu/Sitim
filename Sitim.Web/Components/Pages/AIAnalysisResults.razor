@@ -3,8 +3,9 @@
 @inject SitimApiClient Api
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Rezultatul analizei</PageTitle>
+<PageTitle>@L["Results.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     @if (isLoading)
@@ -14,7 +15,7 @@
     else if (job == null)
     {
         <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false">
-            Rezultatul analizei nu a fost găsit.
+            @L["Results.NotFound"]
         </RadzenAlert>
     }
     else
@@ -23,8 +24,8 @@
             <RadzenColumn>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
-                                  Click="@NavigateToStudy" title="Înapoi la studiu" />
-                    <RadzenText Text="Rezultatul analizei" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                                  Click="@NavigateToStudy" title="@L["Progress.BackToStudy"]" />
+                    <RadzenText Text="@L["Results.Title"]" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn>
@@ -35,9 +36,9 @@
         @if (job.Status != "Completed")
         {
             <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-                Analiza nu este finalizată încă. Status: @job.Status
+                @L["Results.NotFinishedYet"] @job.Status
             </RadzenAlert>
-            <RadzenButton Text="Vezi progresul" Icon="monitoring" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
+            <RadzenButton Text="@L["Results.SeeProgress"]" Icon="monitoring" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small"
                           Click="@(() => Navigation.NavigateTo($"/analysis/{JobId}"))" />
         }
         else
@@ -46,7 +47,7 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard>
                         <RadzenStack Gap="0.5rem">
-                            <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Common.Model"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                             <RadzenText Text="@(job.ModelName ?? "—")" TextStyle="TextStyle.Body1" />
                         </RadzenStack>
                     </RadzenCard>
@@ -54,7 +55,7 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard>
                         <RadzenStack Gap="0.5rem">
-                            <RadzenText Text="Finalizată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Results.FinishedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                             <RadzenText Text="@(job.FinishedAt.HasValue ? FormatDateTime(job.FinishedAt.Value) : "—")" TextStyle="TextStyle.Body1" />
                         </RadzenStack>
                     </RadzenCard>
@@ -65,7 +66,7 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard>
                         <RadzenStack Gap="0.5rem">
-                            <RadzenText Text="Încredere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Common.Confidence"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                             <RadzenText Text="@(job.Confidence?.ToString("P2") ?? "—")" TextStyle="TextStyle.Body1" />
                         </RadzenStack>
                     </RadzenCard>
@@ -73,7 +74,7 @@
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenCard>
                         <RadzenStack Gap="0.5rem">
-                            <RadzenText Text="Timp procesare" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Common.ProcessingTime"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                             <LiveDurationTimer StartedAtUtc="@job.StartedAt"
                                                FinishedAtUtc="@job.FinishedAt"
                                                ProcessingTimeMs="@job.ProcessingTimeMs"
@@ -87,19 +88,19 @@
             {
                 <RadzenCard>
                     <RadzenStack Gap="1rem">
-                        <RadzenText Text="Interpretare clinică" TextStyle="TextStyle.H6" />
+                        <RadzenText Text="@L["Results.ClinicalInterpretation"]" TextStyle="TextStyle.H6" />
                         <RadzenRow Gap="1rem">
                             <RadzenColumn Size="12" SizeMD="4">
-                                <RadzenText Text="Diagnostic" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                <RadzenText Text="@L["Results.Diagnosis"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                 <RadzenText Text="@analysisResult.Diagnosis" TextStyle="TextStyle.Body1" />
                             </RadzenColumn>
                             <RadzenColumn Size="12" SizeMD="4">
-                                <RadzenText Text="Severitate" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                <RadzenText Text="@L["Results.Severity"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                 <RadzenBadge BadgeStyle="@GetSeverityBadgeStyle(analysisResult.Severity)" Text="@analysisResult.Severity" />
                             </RadzenColumn>
                             <RadzenColumn Size="12" SizeMD="4">
-                                <RadzenText Text="Clasă predicție" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                                <RadzenText Text="@($"Clasa {job.PredictionClass}")" TextStyle="TextStyle.Body1" />
+                                <RadzenText Text="@L["Results.PredictionClass"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                <RadzenText Text="@L["Results.ClassNo", job.PredictionClass!]" TextStyle="TextStyle.Body1" />
                             </RadzenColumn>
                         </RadzenRow>
                     </RadzenStack>
@@ -109,7 +110,7 @@
                 {
                     <RadzenCard>
                         <RadzenStack Gap="1rem">
-                            <RadzenText Text="Probabilități pe clase" TextStyle="TextStyle.H6" />
+                            <RadzenText Text="@L["Panel.ClassProbabilities"]" TextStyle="TextStyle.H6" />
                             @foreach (var prob in analysisResult.AllProbabilities)
                             {
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
@@ -126,7 +127,7 @@
                 {
                     <RadzenCard>
                         <RadzenStack Gap="1rem">
-                            <RadzenText Text="Recomandări" TextStyle="TextStyle.H6" />
+                            <RadzenText Text="@L["Results.Recommendations"]" TextStyle="TextStyle.H6" />
                             @foreach (var recommendation in analysisResult.Recommendations)
                             {
                                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Start" Gap="0.5rem">
@@ -141,14 +142,14 @@
             else if (!string.IsNullOrWhiteSpace(job.ErrorMessage))
             {
                 <RadzenAlert AlertStyle="AlertStyle.Danger" Shade="Shade.Light" AllowClose="false">
-                    <RadzenText Text="@($"Eroare: {job.ErrorMessage}")" />
+                    <RadzenText Text="@L["Progress.Error", job.ErrorMessage]" />
                 </RadzenAlert>
             }
 
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="Înapoi la studiu" Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text"
+                <RadzenButton Text="@L["Progress.BackToStudy"]" Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text"
                               Click="@NavigateToStudy" />
-                <RadzenButton Text="Analiză Nouă" Icon="refresh" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
+                <RadzenButton Text="@L["Results.NewAnalysis"]" Icon="refresh" ButtonStyle="ButtonStyle.Success" Variant="Variant.Flat"
                               Click="@NavigateToStudy" />
             </RadzenStack>
         }
@@ -184,7 +185,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {

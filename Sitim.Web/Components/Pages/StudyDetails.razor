@@ -5,8 +5,9 @@
 @inject NotificationService Notification
 @inject DialogService Dialog
 @inject AuthTokenStore TokenStore
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Studiu — SITIM</PageTitle>
+<PageTitle>@L["StudyDetails.PageTitle"]</PageTitle>
 
 @if (isLoading)
 {
@@ -15,7 +16,7 @@
 else if (study is null)
 {
     <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false">
-        Studiul nu a fost găsit.
+        @L["StudyDetails.NotFound"]
     </RadzenAlert>
 }
 else
@@ -26,31 +27,31 @@ else
             <RadzenColumn Size="12" SizeMD="8">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
-                                  Click="@(() => Navigation.NavigateTo("/studies"))" title="Înapoi la Worklist" />
-                    <RadzenText Text="@($"Studiu: {study.PatientName ?? "N/A"}")" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                                  Click="@(() => Navigation.NavigateTo("/studies"))" title="@L["StudyDetails.BackToWorklist"]" />
+                    <RadzenText Text="@L["StudyDetails.Title", study.PatientName ?? "N/A"]" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="4">
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                    <RadzenButton Text="Sincronizare" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                    <RadzenButton Text="@L["StudyDetails.Sync"]" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                                   Click="@OnSync" />
                     <AuthorizeView Roles="Admin,Doctor,Technician">
-                        <RadzenButton Text="Analiză" Icon="science" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                        <RadzenButton Text="@L["StudyDetails.Analyze"]" Icon="science" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                                       Click="@OnStartAnalysis" />
                     </AuthorizeView>
                 </RadzenStack>
             </RadzenColumn>
         </RadzenRow>
 
-        @* ── Detalii studiu ──────────────────────────────── *@
+        @* ── Study details ──────────────────────────────── *@
         <RadzenCard>
-            <RadzenText Text="Detalii studiu" TextStyle="TextStyle.H6" class="rz-mb-3" />
+            <RadzenText Text="@L["Studies.StudyDetails"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
             <RadzenRow>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="0.5rem">
-                        <RadzenFormField Text="Pacient" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientName ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
-                        <RadzenFormField Text="ID Pacient" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientId ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
-                        <RadzenFormField Text="Data studiu" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@FormatStudyDate(study.StudyDate)" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="@L["Common.Patient"]" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientName ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="@L["Studies.PatientId"]" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.PatientId ?? "—")" Style="width: 100%;" /></ChildContent></RadzenFormField>
+                        <RadzenFormField Text="@L["Studies.StudyDate"]" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@FormatStudyDate(study.StudyDate)" Style="width: 100%;" /></ChildContent></RadzenFormField>
                     </RadzenStack>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
@@ -61,7 +62,7 @@ else
                             <RadzenFormField Text="Study Instance UID" Variant="Variant.Text"><ChildContent><RadzenTextBox ReadOnly="true" Value="@(study.StudyInstanceUid ?? "—")" Style="width: 100%; font-family: monospace; font-size: 0.85rem;" /></ChildContent></RadzenFormField>
                         }
                         <div>
-                            <RadzenText Text="Modalități" TextStyle="TextStyle.Body2" class="rz-mb-1" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Studies.Modalities"]" TextStyle="TextStyle.Body2" class="rz-mb-1" style="color: var(--rz-text-tertiary-color);" />
                             @foreach (var mod in study.ModalitiesInStudy)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@mod" class="rz-mr-1" />
@@ -72,7 +73,7 @@ else
             </RadzenRow>
             @if (!IsDoctor)
             {
-                <RadzenText Text="@($"Serii: {study.SeriesOrthancIds.Count}")" TextStyle="TextStyle.Caption" class="rz-mt-3" style="color: var(--rz-text-tertiary-color);" />
+                <RadzenText Text="@L["StudyDetails.SeriesCount", study.SeriesOrthancIds.Count]" TextStyle="TextStyle.Caption" class="rz-mt-3" style="color: var(--rz-text-tertiary-color);" />
             }
         </RadzenCard>
 
@@ -80,24 +81,24 @@ else
         <RadzenCard>
             <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-3">
                 <RadzenColumn>
-                    <RadzenText Text="Vizualizare OHIF" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                    <RadzenText Text="@L["StudyDetails.OHIFViewer"]" TextStyle="TextStyle.H6" class="rz-mb-0" />
                 </RadzenColumn>
                 <RadzenColumn>
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
                         @if (!string.IsNullOrWhiteSpace(viewerUrl))
                         {
-                            <RadzenButton Text="Deschide în tab nou" Icon="open_in_new" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                            <RadzenButton Text="@L["StudyDetails.OpenNewTab"]" Icon="open_in_new" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                                           Click="@OpenViewerExternal" />
                         }
                         else if (viewerUnavailable)
                         {
-                            <RadzenButton Text="Reîncearcă viewer" Icon="refresh" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
-                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="Se încarcă..." />
+                            <RadzenButton Text="@L["StudyDetails.RetryViewer"]" Icon="refresh" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small"
+                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="@L["Common.Loading"]" />
                         }
                         else
                         {
-                            <RadzenButton Text="Încarcă viewer" Icon="play_arrow" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="Se încarcă..." />
+                            <RadzenButton Text="@L["StudyDetails.LoadViewer"]" Icon="play_arrow" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                                          Click="@LoadViewerUrl" IsBusy="@isLoadingViewer" BusyText="@L["Common.Loading"]" />
                         }
                     </RadzenStack>
                 </RadzenColumn>
@@ -114,25 +115,25 @@ else
                 <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" AllowClose="false" class="rz-my-2">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                         <RadzenIcon Icon="cloud_off" />
-                        <span>Serverul PACS (Orthanc) nu este disponibil momentan. Vizualizatorul OHIF nu poate fi deschis.</span>
+                        <span>@L["StudyDetails.PACSUnavailable"]</span>
                     </RadzenStack>
                 </RadzenAlert>
             }
             else
             {
-                <RadzenText Text="Apasă 'Încarcă viewer' pentru a deschide vizualizatorul OHIF." TextStyle="TextStyle.Body2"
+                <RadzenText Text="@L["StudyDetails.PressLoadViewer"]" TextStyle="TextStyle.Body2"
                             style="color: var(--rz-text-tertiary-color);" TextAlign="TextAlign.Center" class="rz-py-6" />
             }
         </RadzenCard>
 
-        @* ── Analize pe studiu ──────────────────────────────── *@
+        @* ── Analyses on this study ──────────────────────────────── *@
         <RadzenCard>
             <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-2">
                 <RadzenColumn Size="12" SizeMD="8">
-                    <RadzenText Text="Analize pe acest studiu" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                    <RadzenText Text="@L["StudyDetails.AnalysesOnStudy"]" TextStyle="TextStyle.H6" class="rz-mb-0" />
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
-                    <RadzenButton Icon="refresh" Text="Reîncarcă" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                    <RadzenButton Icon="refresh" Text="@L["Common.Reload"]" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                                   Click="@LoadStudyAnalyses" IsBusy="@isLoadingAnalyses" />
                 </RadzenColumn>
             </RadzenRow>
@@ -143,7 +144,7 @@ else
             }
             else if (!studyAnalyses.Any())
             {
-                <RadzenText Text="Nu există încă analize pentru acest studiu." TextStyle="TextStyle.Body2"
+                <RadzenText Text="@L["StudyDetails.NoAnalysesYet"]" TextStyle="TextStyle.Body2"
                             style="color: var(--rz-text-secondary-color);" />
             }
             else
@@ -156,28 +157,28 @@ else
                                 <RadzenColumn Size="12" SizeMD="10">
                                     <RadzenRow>
                                         <RadzenColumn Size="6" SizeMD="3">
-                                            <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                             <div>
                                                 <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(item.Status)" Text="@item.Status" />
                                             </div>
                                         </RadzenColumn>
                                         <RadzenColumn Size="6" SizeMD="3">
-                                            <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@L["Common.Model"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                             <RadzenText Text="@(item.ModelName ?? "—")" TextStyle="TextStyle.Body2" />
                                         </RadzenColumn>
                                         <RadzenColumn Size="6" SizeMD="3">
-                                            <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@L["Common.CreatedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                             <RadzenText Text="@FormatDateTime(item.CreatedAt)" TextStyle="TextStyle.Body2" />
                                         </RadzenColumn>
                                         <RadzenColumn Size="6" SizeMD="3">
-                                            <RadzenText Text="Încredere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@L["Common.Confidence"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                             <RadzenText Text="@(item.Confidence.HasValue ? item.Confidence.Value.ToString("P2") : "—")" TextStyle="TextStyle.Body2" />
                                         </RadzenColumn>
                                     </RadzenRow>
                                 </RadzenColumn>
                                 <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                                     <RadzenButton Icon="arrow_forward" ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" Size="ButtonSize.Small"
-                                                  title="Deschide analiza"
+                                                  title="@L["StudyDetails.OpenAnalysis"]"
                                                   Click="@(() => OpenStudyAnalysis(item))" />
                                 </RadzenColumn>
                             </RadzenRow>
@@ -217,7 +218,7 @@ else
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {
@@ -235,13 +236,13 @@ else
             if (string.IsNullOrWhiteSpace(viewerUrl))
             {
                 viewerUnavailable = true;
-                Notification.Notify(NotificationSeverity.Warning, "Viewer indisponibil", "Serverul PACS (Orthanc) nu este disponibil momentan.");
+                Notification.Notify(NotificationSeverity.Warning, L["StudyDetails.ViewerUnavailable"], L["StudyDetails.PACSUnavailableShort"]);
             }
         }
         catch (Exception ex)
         {
             viewerUnavailable = true;
-            Notification.Notify(NotificationSeverity.Error, "Eroare viewer", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["StudyDetails.ViewerError"], ex.Message);
         }
         finally
         {
@@ -261,11 +262,11 @@ else
         {
             study = await Api.SyncStudyAsync(OrthancStudyId);
             await LoadStudyAnalyses();
-            Notification.Notify(NotificationSeverity.Success, "Sincronizat", "Studiul a fost sincronizat din Orthanc.");
+            Notification.Notify(NotificationSeverity.Success, L["StudyDetails.Synced"], L["StudyDetails.SyncedDetail"]);
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
     }
 
@@ -274,7 +275,7 @@ else
     {
         if (study?.DbStudyId == null || study.DbStudyId == Guid.Empty)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", "Studiul nu are ID din baza de date.");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["StudyDetails.NoDbId"]);
             return;
         }
 
@@ -285,13 +286,13 @@ else
             
             if (!models.Any())
             {
-                Notification.Notify(NotificationSeverity.Warning, "Niciun model disponibil", 
-                    $"Nu sunt modele compatibile cu modalitatea acestui studiu ({string.Join(", ", study.ModalitiesInStudy)}).");
+                Notification.Notify(NotificationSeverity.Warning, L["StudyDetails.NoModelAvailable"],
+                    L["StudyDetails.NoCompatibleModels", string.Join(", ", study.ModalitiesInStudy)]);
                 return;
             }
 
             // Show model selection dialog
-            var result = await Dialog.OpenAsync<ModelSelectionDialog>("Selectare Model pentru Analiză",
+            var result = await Dialog.OpenAsync<ModelSelectionDialog>(L["StudyDetails.SelectModelTitle"],
                 new Dictionary<string, object?> { { "Models", models } },
                 new DialogOptions { Width = "92vw", Height = "84vh", Resizable = false, Draggable = true });
 
@@ -303,7 +304,7 @@ else
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut încărca modelele: {ex.Message}");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Panel.LoadModelsFailed", ex.Message]);
         }
     }
 
@@ -313,15 +314,15 @@ else
         {
             var jobId = await Api.StartAnalysisAsync(studyId, modelId);
             
-            Notification.Notify(NotificationSeverity.Success, "Analiză pornită", 
-                $"Analiza a fost adăugată în coadă (Job ID: {jobId:N}).");
+            Notification.Notify(NotificationSeverity.Success, L["StudyDetails.AnalysisStarted"],
+                L["StudyDetails.AnalysisQueued", $"{jobId:N}"]);
             
             // Navigate to analysis progress page to track job
             Navigation.NavigateTo($"/analysis/{jobId}");
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare la pornire analiză", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["StudyDetails.AnalysisStartError"], ex.Message);
         }
     }
 
@@ -340,7 +341,7 @@ else
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare analize", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["StudyDetails.AnalysesError"], ex.Message);
             studyAnalyses = new();
         }
         finally

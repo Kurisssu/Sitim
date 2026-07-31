@@ -1,5 +1,6 @@
 @using Sitim.Web.Services
 @inject DialogService DialogService
+@inject IStringLocalizer<SharedResource> L
 
 <div class="sitim-model-dialog">
 
@@ -12,11 +13,11 @@
                 @Model.Name
                 @if (Model.IsActive)
                 {
-                    <RadzenBadge Text="Activ" BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" class="rz-ms-2" />
+                    <RadzenBadge Text="@L["Common.Active"]" BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" class="rz-ms-2" />
                 }
                 else
                 {
-                    <RadzenBadge Text="Inactiv" BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Flat" class="rz-ms-2" />
+                    <RadzenBadge Text="@L["Common.Inactive"]" BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Flat" class="rz-ms-2" />
                 }
             </div>
             <span class="sitim-model-dialog-version">v@Model.Version</span>
@@ -26,11 +27,11 @@
     <div class="sitim-model-metrics">
         <div class="sitim-model-metric">
             <span class="sitim-model-metric-value">@(Model.Accuracy.HasValue ? $"{Model.Accuracy.Value:P1}" : "—")</span>
-            <span class="sitim-model-metric-label">Acuratețe</span>
+            <span class="sitim-model-metric-label">@L["AIModels.Accuracy"]</span>
         </div>
         <div class="sitim-model-metric">
             <span class="sitim-model-metric-value">@(Model.NumClasses?.ToString() ?? "—")</span>
-            <span class="sitim-model-metric-label">Clase</span>
+            <span class="sitim-model-metric-label">@L["ModelDialog.Classes"]</span>
         </div>
         <div class="sitim-model-metric">
             <span class="sitim-model-metric-value">@(Model.InputShape ?? "—")</span>
@@ -40,19 +41,19 @@
 
     <div class="sitim-model-details-grid">
         <div class="sitim-model-detail-row">
-            <span class="sitim-model-detail-label">Sursă antrenare</span>
+            <span class="sitim-model-detail-label">@L["ModelDialog.TrainingSource"]</span>
             <span class="sitim-model-detail-value">@(Model.TrainingSource ?? "—")</span>
         </div>
         <div class="sitim-model-detail-row">
-            <span class="sitim-model-detail-label">Fișier stocare</span>
+            <span class="sitim-model-detail-label">@L["ModelDialog.StorageFile"]</span>
             <span class="sitim-model-detail-value sitim-mono">@Model.StorageFileName</span>
         </div>
         <div class="sitim-model-detail-row">
-            <span class="sitim-model-detail-label">Data încărcării</span>
+            <span class="sitim-model-detail-label">@L["AIModels.UploadDate"]</span>
             <span class="sitim-model-detail-value">@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</span>
         </div>
         <div class="sitim-model-detail-row">
-            <span class="sitim-model-detail-label">ID intern</span>
+            <span class="sitim-model-detail-label">@L["ModelDialog.InternalId"]</span>
             <span class="sitim-model-detail-value sitim-mono sitim-model-id-text">@Model.Id</span>
         </div>
     </div>
@@ -60,13 +61,13 @@
     @if (!string.IsNullOrWhiteSpace(Model.Description))
     {
         <div class="sitim-model-description-block">
-            <span class="sitim-model-detail-label">Descriere</span>
+            <span class="sitim-model-detail-label">@L["Common.Description"]</span>
             <p class="sitim-model-description-text">@Model.Description</p>
         </div>
     }
 
     <div class="sitim-model-dialog-footer">
-        <RadzenButton Text="Închide" Icon="close" ButtonStyle="ButtonStyle.Light"
+        <RadzenButton Text="@L["Common.Close"]" Icon="close" ButtonStyle="ButtonStyle.Light"
                       Click="@(() => DialogService.Close())" />
     </div>
 

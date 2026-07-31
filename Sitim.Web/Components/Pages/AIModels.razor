@@ -6,21 +6,22 @@
 @inject SitimApiClient ApiClient
 @inject NotificationService NotificationService
 @inject DialogService DialogService
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Modele AI - SITIM</PageTitle>
+<PageTitle>@L["AIModels.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center">
         <RadzenColumn Size="12" SizeMD="8">
             <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
-                Modele AI
+                @L["Nav.AIModels"]
             </RadzenText>
             <RadzenText TextStyle="TextStyle.Body2" class="rz-text-tertiary-color">
-                Gestionează modelele de inteligență artificială pentru analiză medicală
+                @L["AIModels.Subtitle"]
             </RadzenText>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
-            <RadzenButton Text="Încarcă Model Nou" 
+            <RadzenButton Text="@L["AIModels.UploadNew"]"
                           Icon="add" 
                           ButtonStyle="ButtonStyle.Primary" 
                           Click="@ShowUploadDialog"
@@ -33,7 +34,7 @@
         <RadzenCard>
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
                 <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
-                <RadzenText>Se încarcă modelele...</RadzenText>
+                <RadzenText>@L["AIModels.LoadingModels"]</RadzenText>
             </RadzenStack>
         </RadzenCard>
     }
@@ -43,10 +44,10 @@
             <RadzenStack AlignItems="AlignItems.Center" Gap="1rem" class="rz-py-8">
                 <RadzenIcon Icon="psychology" Style="font-size: 3rem; color: var(--rz-text-disabled-color);" />
                 <RadzenText TextStyle="TextStyle.H6" class="rz-text-tertiary-color">
-                    Nu există modele AI încărcate
+                    @L["AIModels.Empty"]
                 </RadzenText>
                 <RadzenText TextStyle="TextStyle.Body2" class="rz-text-tertiary-color">
-                    Începe prin a încărca un model antrenat în format ONNX
+                    @L["AIModels.EmptyHint"]
                 </RadzenText>
             </RadzenStack>
         </RadzenCard>
@@ -61,35 +62,35 @@
                         <RadzenColumn Size="12" SizeMD="10">
                             <RadzenRow>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Nume model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["AIModels.ModelName"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenStack Gap="0.125rem">
                                         <RadzenText Text="@model.Name" TextStyle="TextStyle.Body2" />
                                         <RadzenText Text="@($"v{model.Version}")" TextStyle="TextStyle.Caption" />
                                     </RadzenStack>
                                 </RadzenColumn>
                                 <RadzenColumn Size="12" SizeMD="5">
-                                    <RadzenText Text="Descriere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Description"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(string.IsNullOrWhiteSpace(model.Description) ? "—" : model.Description)" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="1">
-                                    <RadzenText Text="Acuratețe" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["AIModels.Accuracy"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(model.Accuracy.HasValue ? $"{model.Accuracy.Value:P1}" : "—")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="1">
-                                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <div>
                                         @if (model.IsActive)
                                         {
-                                            <RadzenBadge Text="Activ" BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" />
+                                            <RadzenBadge Text="@L["Common.Active"]" BadgeStyle="BadgeStyle.Success" Variant="Variant.Flat" />
                                         }
                                         else
                                         {
-                                            <RadzenBadge Text="Inactiv" BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Flat" />
+                                            <RadzenBadge Text="@L["Common.Inactive"]" BadgeStyle="BadgeStyle.Secondary" Variant="Variant.Flat" />
                                         }
                                     </div>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="3">
-                                    <RadzenText Text="Data încărcării" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["AIModels.UploadDate"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@model.CreatedAt.ToString("dd.MM.yyyy HH:mm")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                             </RadzenRow>
@@ -100,22 +101,22 @@
                                               ButtonStyle="ButtonStyle.Light"
                                               Size="ButtonSize.Small"
                                               Click="@(() => ShowModelDetails(model))"
-                                              title="Detalii" />
+                                              title="@L["Common.Details"]" />
                                 <RadzenButton Icon="edit"
                                               ButtonStyle="ButtonStyle.Light"
                                               Size="ButtonSize.Small"
                                               Click="@(() => ShowEditDialog(model))"
-                                              title="Editează clase și recomandări" />
+                                              title="@L["AIModels.EditClasses"]" />
                                 <RadzenButton Icon="@(model.IsActive ? "toggle_on" : "toggle_off")"
                                               ButtonStyle="ButtonStyle.Light"
                                               Size="ButtonSize.Small"
                                               Click="@(() => ToggleModelStatus(model))"
-                                              title="@(model.IsActive ? "Dezactivează" : "Activează")" />
+                                              title="@(model.IsActive ? L["AIModels.Deactivate"] : L["AIModels.Activate"])" />
                                 <RadzenButton Icon="delete"
                                               ButtonStyle="ButtonStyle.Danger"
                                               Size="ButtonSize.Small"
                                               Click="@(() => DeleteModel(model))"
-                                              title="Șterge" />
+                                              title="@L["Common.Delete"]" />
                             </RadzenStack>
                         </RadzenColumn>
                     </RadzenRow>
@@ -143,7 +144,7 @@
         }
         catch (Exception ex)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-au putut încărca modelele: {ex.Message}");
+            NotificationService.Notify(NotificationSeverity.Error, L["Common.Error"], L["Panel.LoadModelsFailed", ex.Message]);
         }
         finally
         {
@@ -154,7 +155,7 @@
     private async Task ShowUploadDialog()
     {
         var result = await DialogService.OpenAsync<UploadModelDialog>(
-            "Încarcă Model AI",
+            L["AIModels.UploadDialogTitle"],
             new Dictionary<string, object>
             {
                 { "OnUploadComplete", EventCallback.Factory.Create(this, LoadModels) }
@@ -177,7 +178,7 @@
     private async Task ShowModelDetails(AIModelDto model)
     {
         await DialogService.OpenAsync<AIModelDetailsDialog>(
-            "Detalii Model AI",
+            L["AIModels.DetailsDialogTitle"],
             new Dictionary<string, object> { { "Model", model } },
             new DialogOptions
             {
@@ -192,7 +193,7 @@
     private async Task ShowEditDialog(AIModelDto model)
     {
         var result = await DialogService.OpenAsync<EditModelMetadataDialog>(
-            "Editează Model AI",
+            L["AIModels.EditDialogTitle"],
             new Dictionary<string, object> { { "Model", model } },
             new DialogOptions
             {
@@ -213,11 +214,12 @@
 
     private async Task ToggleModelStatus(AIModelDto model)
     {
-        var action = model.IsActive ? "dezactivezi" : "activezi";
         var confirmed = await DialogService.Confirm(
-            $"Ești sigur că vrei să {action} modelul '{model.Name}'?",
-            "Confirmare",
-            new ConfirmOptions { OkButtonText = "Da", CancelButtonText = "Anulează" }
+            model.IsActive
+                ? L["AIModels.ConfirmDeactivate", model.Name]
+                : L["AIModels.ConfirmActivate", model.Name],
+            L["AIModels.ConfirmTitle"],
+            new ConfirmOptions { OkButtonText = L["Common.Yes"], CancelButtonText = L["Common.Cancel"] }
         );
 
         if (confirmed == true)
@@ -227,17 +229,18 @@
                 var success = await ApiClient.ToggleModelStatusAsync(model.Id);
                 if (success)
                 {
-                    NotificationService.Notify(NotificationSeverity.Success, "Succes", $"Modelul a fost {(model.IsActive ? "dezactivat" : "activat")}");
+                    NotificationService.Notify(NotificationSeverity.Success, L["Common.Success"],
+                        model.IsActive ? L["AIModels.Deactivated"] : L["AIModels.Activated"]);
                     await LoadModels();
                 }
                 else
                 {
-                    NotificationService.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut modifica statusul");
+                    NotificationService.Notify(NotificationSeverity.Error, L["Common.Error"], L["AIModels.ToggleFailed"]);
                 }
             }
             catch (Exception ex)
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut modifica statusul: {ex.Message}");
+                NotificationService.Notify(NotificationSeverity.Error, L["Common.Error"], L["AIModels.ToggleFailedDetail", ex.Message]);
             }
         }
     }
@@ -245,9 +248,9 @@
     private async Task DeleteModel(AIModelDto model)
     {
         var confirmed = await DialogService.Confirm(
-            $"Ești sigur că vrei să ștergi modelul '{model.Name}' v{model.Version}? Această acțiune este ireversibilă.",
-            "Confirmare Ștergere",
-            new ConfirmOptions { OkButtonText = "Șterge", CancelButtonText = "Anulează" }
+            L["AIModels.ConfirmDelete", model.Name, model.Version],
+            L["AIModels.ConfirmDeleteTitle"],
+            new ConfirmOptions { OkButtonText = L["Common.Delete"], CancelButtonText = L["Common.Cancel"] }
         );
 
         if (confirmed == true)
@@ -257,17 +260,17 @@
                 var success = await ApiClient.DeleteModelAsync(model.Id);
                 if (success)
                 {
-                    NotificationService.Notify(NotificationSeverity.Success, "Succes", "Modelul a fost șters");
+                    NotificationService.Notify(NotificationSeverity.Success, L["Common.Success"], L["AIModels.Deleted"]);
                     await LoadModels();
                 }
                 else
                 {
-                    NotificationService.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut șterge modelul");
+                    NotificationService.Notify(NotificationSeverity.Error, L["Common.Error"], L["AIModels.DeleteFailed"]);
                 }
             }
             catch (Exception ex)
             {
-                NotificationService.Notify(NotificationSeverity.Error, "Eroare", $"Nu s-a putut șterge modelul: {ex.Message}");
+                NotificationService.Notify(NotificationSeverity.Error, L["Common.Error"], L["AIModels.DeleteFailedDetail", ex.Message]);
             }
         }
     }

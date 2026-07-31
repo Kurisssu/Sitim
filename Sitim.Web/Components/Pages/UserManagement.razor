@@ -5,18 +5,19 @@
 @inject NotificationService NotificationService
 @inject NavigationManager Navigation
 @inject AuthTokenStore TokenStore
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Utilizatori — SITIM</PageTitle>
+<PageTitle>@L["Users.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center">
         <RadzenColumn Size="8">
-            <RadzenText Text="Utilizatori" TextStyle="TextStyle.H4" />
-            <RadzenText Text="Gestionare conturi: doctori, tehnicieni și administratori." TextStyle="TextStyle.Body2"
+            <RadzenText Text="@L["Nav.Users"]" TextStyle="TextStyle.H4" />
+            <RadzenText Text="@L["Users.Subtitle"]" TextStyle="TextStyle.Body2"
                         style="color: var(--rz-text-tertiary-color);" />
         </RadzenColumn>
         <RadzenColumn Size="4" class="rz-text-align-end">
-            <RadzenButton Text="Invită utilizator" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
+            <RadzenButton Text="@L["Users.Invite"]" Icon="person_add" ButtonStyle="ButtonStyle.Primary"
                           Click="@OpenInviteDialog" />
         </RadzenColumn>
     </RadzenRow>
@@ -30,7 +31,7 @@
         @if (!_users.Any())
         {
             <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-                Nu există utilizatori.
+                @L["Users.Empty"]
             </RadzenAlert>
         }
         else
@@ -43,7 +44,7 @@
                             <RadzenColumn Size="12" SizeMD="10">
                                 <RadzenRow>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Nume" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Common.Name"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@(string.IsNullOrWhiteSpace(row.FullName) ? "—" : row.FullName)" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="12" SizeMD="3">
@@ -51,7 +52,7 @@
                                         <RadzenText Text="@row.Email" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Rol" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Users.Role"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <div>
                                             <RadzenBadge BadgeStyle="@RoleBadge(row.Role)" Text="@row.Role" />
                                         </div>
@@ -59,25 +60,25 @@
                                     @if (TokenStore.IsSuperAdmin)
                                     {
                                         <RadzenColumn Size="6" SizeMD="2">
-                                            <RadzenText Text="Instituție" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                            <RadzenText Text="@L["Users.Institution"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                             <RadzenText Text="@(row.InstitutionName ?? "—")" TextStyle="TextStyle.Body2" />
                                         </RadzenColumn>
                                     }
                                     <RadzenColumn Size="6" SizeMD="1">
-                                        <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <div>
                                             @if (row.IsActive)
                                             {
-                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@L["Common.Active"]" />
                                             }
                                             else
                                             {
-                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@L["Common.Inactive"]" />
                                             }
                                         </div>
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Creat" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Users.Created"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@row.CreatedAtUtc.ToString("yyyy-MM-dd")" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                 </RadzenRow>
@@ -85,9 +86,9 @@
                             <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
                                     <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
-                                                  Click="@(() => OpenEditDialog(row))" title="Editează" />
+                                                  Click="@(() => OpenEditDialog(row))" title="@L["Users.Edit"]" />
                                     <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small"
-                                                  Click="@(() => ConfirmDelete(row))" title="Șterge utilizatorul" />
+                                                  Click="@(() => ConfirmDelete(row))" title="@L["Users.DeleteUser"]" />
                                 </RadzenStack>
                             </RadzenColumn>
                         </RadzenRow>
@@ -103,19 +104,19 @@
     <RadzenCard Style="min-width:440px;max-width:640px;padding:2rem;">
         @if (_inviteResult is null)
             {
-                <RadzenText Text="Invită utilizator nou" TextStyle="TextStyle.H6" class="rz-mb-4" />
+                <RadzenText Text="@L["Users.InviteNew"]" TextStyle="TextStyle.H6" class="rz-mb-4" />
                 <RadzenStack Gap="1rem">
                     <RadzenFormField Text="Email *" Style="width:100%">
                         <ChildContent>
-                            <RadzenTextBox @bind-Value="_invEmail" Placeholder="doctor@clinica.ro" Style="width:100%" />
+                            <RadzenTextBox @bind-Value="_invEmail" Placeholder="doctor@clinic.com" Style="width:100%" />
                         </ChildContent>
                     </RadzenFormField>
-                    <RadzenFormField Text="Nume complet" Style="width:100%">
+                    <RadzenFormField Text="@L["Users.FullName"]" Style="width:100%">
                         <ChildContent>
                             <RadzenTextBox @bind-Value="_invFullName" Placeholder="Dr. Ion Popescu" Style="width:100%" />
                         </ChildContent>
                     </RadzenFormField>
-                    <RadzenFormField Text="Rol *" Style="width:100%">
+                    <RadzenFormField Text="@($"{L["Users.Role"]} *")" Style="width:100%">
                         <ChildContent>
                             <RadzenDropDown @bind-Value="_invRole"
                                             Data="@GetAllowedRoles()"
@@ -124,60 +125,60 @@
                     </RadzenFormField>
                     @if (TokenStore.IsSuperAdmin)
                     {
-                        <RadzenFormField Text="Instituție *" Style="width:100%">
+                        <RadzenFormField Text="@($"{L["Users.Institution"]} *")" Style="width:100%">
                             <ChildContent>
                                 <RadzenDropDown @bind-Value="_invInstitutionId"
                                                 Data="@_institutions"
                                                 TextProperty="Name"
                                                 ValueProperty="Id"
-                                                Placeholder="Selectați instituția"
+                                                Placeholder="@L["Users.SelectInstitution"]"
                                                 Style="width:100%" />
                             </ChildContent>
                         </RadzenFormField>
                     }
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                        <RadzenButton Text="Trimite invitație" Icon="mail" ButtonStyle="ButtonStyle.Primary"
+                        <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                        <RadzenButton Text="@L["Users.SendInvite"]" Icon="mail" ButtonStyle="ButtonStyle.Primary"
                                       Click="@DoInvite" IsBusy="@_saving" />
                     </RadzenStack>
                 </RadzenStack>
             }
             else if (_inviteResult.EmailSent)
             {
-                <RadzenText Text="Invitație trimisă" TextStyle="TextStyle.H6" class="rz-mb-3" />
+                <RadzenText Text="@L["Users.InviteSent"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
                 <RadzenAlert AlertStyle="AlertStyle.Success" AllowClose="false" class="rz-mb-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                         <RadzenIcon Icon="mark_email_read" />
-                        <span>Am trimis un email cu link de activare la <strong>@_inviteResult.Email</strong>.</span>
+                        <span>@L["Users.InviteSentDetail"] <strong>@_inviteResult.Email</strong>.</span>
                     </RadzenStack>
                 </RadzenAlert>
                 <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                    Linkul este valabil 2 ore și poate fi folosit o singură dată. Dacă utilizatorul nu îl primește, verifică folderul Spam sau încarcă invitația din nou.
+                    @L["Users.InviteLinkHint"]
                 </RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
-                    <RadzenButton Text="Închide" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Common.Close"]" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
                 </RadzenStack>
             }
             else
             {
                 @* SMTP failed — fallback link is shown only in Development (server-controlled). *@
-                <RadzenText Text="Email indisponibil" TextStyle="TextStyle.H6" class="rz-mb-3" />
+                <RadzenText Text="@L["Users.EmailUnavailable"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
                 <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false" class="rz-mb-3">
-                    Trimiterea emailului a eșuat. Contul nou a fost retras automat.
+                    @L["Users.EmailFailed"]
                 </RadzenAlert>
                 @if (!string.IsNullOrWhiteSpace(_inviteResult.FallbackLink))
                 {
                     <RadzenAlert AlertStyle="AlertStyle.Info" AllowClose="false" class="rz-mb-3" Size="AlertSize.Small">
-                        Modul Development: poți folosi linkul de mai jos manual.
+                        @L["Users.DevModeHint"]
                     </RadzenAlert>
-                    <RadzenFormField Text="Link de fallback (DEV)" Style="width:100%">
+                    <RadzenFormField Text="@L["Users.FallbackLink"]" Style="width:100%">
                         <ChildContent>
                             <RadzenTextBox Value="@_inviteResult.FallbackLink" ReadOnly="true" Style="width:100%;font-size:0.8rem;" />
                         </ChildContent>
                     </RadzenFormField>
                 }
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-3">
-                    <RadzenButton Text="Închide" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Common.Close"]" ButtonStyle="ButtonStyle.Primary" Click="@CloseDialogs" />
                 </RadzenStack>
             }
     </RadzenCard>
@@ -188,14 +189,14 @@
     @if (_editTarget is not null)
     {
         <RadzenCard Style="min-width:420px;max-width:560px;padding:2rem;">
-            <RadzenText Text="Editare utilizator" TextStyle="TextStyle.H6" class="rz-mb-4" />
+            <RadzenText Text="@L["Users.EditUser"]" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
-                <RadzenFormField Text="Nume complet" Style="width:100%">
+                <RadzenFormField Text="@L["Users.FullName"]" Style="width:100%">
                     <ChildContent>
                         <RadzenTextBox @bind-Value="_editFullName" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
-                <RadzenFormField Text="Rol" Style="width:100%">
+                <RadzenFormField Text="@L["Users.Role"]" Style="width:100%">
                     <ChildContent>
                         <RadzenDropDown @bind-Value="_editRole"
                                         Data="@GetAllowedRoles()"
@@ -204,11 +205,11 @@
                 </RadzenFormField>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenCheckBox @bind-Value="_editIsActive" Name="editActive" />
-                    <RadzenLabel Text="Cont activ" Component="editActive" />
+                    <RadzenLabel Text="@L["Users.ActiveAccount"]" Component="editActive" />
                 </RadzenStack>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                    <RadzenButton Text="Salvare" ButtonStyle="ButtonStyle.Primary"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Common.Save"]" ButtonStyle="ButtonStyle.Primary"
                                   Click="@DoEdit" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
@@ -224,16 +225,15 @@
             <RadzenStack Gap="1rem">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
                     <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
-                    <RadzenText Text="Confirmare ștergere" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                    <RadzenText Text="@L["Users.ConfirmDeleteTitle"]" TextStyle="TextStyle.H6" class="rz-mb-0" />
                 </RadzenStack>
                 <RadzenText>
-                    Ești sigur că vrei să ștergi definitiv utilizatorul
-                    <strong>@(_deleteTarget.FullName ?? _deleteTarget.Email)</strong>?
-                    Această acțiune nu poate fi anulată.
+                    @L["Users.ConfirmDeleteQuestion", _deleteTarget.FullName ?? _deleteTarget.Email]
+                    @L["Users.ConfirmDeleteWarning"]
                 </RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                    <RadzenButton Text="Șterge definitiv" Icon="delete" ButtonStyle="ButtonStyle.Danger"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Studies.DeletePermanently"]" Icon="delete" ButtonStyle="ButtonStyle.Danger"
                                   Click="@DoDelete" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
@@ -322,12 +322,12 @@
     {
         if (string.IsNullOrWhiteSpace(_invEmail))
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Email obligatoriu.");
+            NotificationService.Notify(NotificationSeverity.Warning, L["Users.EmailRequired"]);
             return;
         }
         if (TokenStore.IsSuperAdmin && !_invInstitutionId.HasValue)
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Selectați instituția.");
+            NotificationService.Notify(NotificationSeverity.Warning, L["Users.SelectInstitution"]);
             return;
         }
 
@@ -337,7 +337,7 @@
 
         if (result is null)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la invitație. Verificați că email-ul nu este deja înregistrat.");
+            NotificationService.Notify(NotificationSeverity.Error, L["Users.InviteError"]);
             return;
         }
 
@@ -345,9 +345,9 @@
         await LoadAsync();
 
         if (result.EmailSent)
-            NotificationService.Notify(NotificationSeverity.Success, $"Email de invitație trimis către {result.Email}.");
+            NotificationService.Notify(NotificationSeverity.Success, L["Users.InviteEmailSentTo", result.Email]);
         else
-            NotificationService.Notify(NotificationSeverity.Warning, "Trimiterea emailului a eșuat. Vezi detaliile în dialog.");
+            NotificationService.Notify(NotificationSeverity.Warning, L["Users.InviteEmailFailed"]);
     }
 
     private async Task DoEdit()
@@ -364,11 +364,11 @@
 
         if (result is null)
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la actualizare.");
+            NotificationService.Notify(NotificationSeverity.Error, L["Users.UpdateError"]);
             return;
         }
 
-        NotificationService.Notify(NotificationSeverity.Success, "Utilizatorul a fost actualizat.");
+        NotificationService.Notify(NotificationSeverity.Success, L["Users.Updated"]);
         CloseDialogs();
         await LoadAsync();
     }
@@ -383,13 +383,13 @@
 
         if (ok)
         {
-            NotificationService.Notify(NotificationSeverity.Success, $"Utilizatorul {_deleteTarget.Email} a fost șters definitiv.");
+            NotificationService.Notify(NotificationSeverity.Success, L["Users.DeletedDetail", _deleteTarget.Email]);
             CloseDialogs();
             await LoadAsync();
         }
         else
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la ștergere. Nu poți șterge conturi SuperAdmin sau propriul cont.");
+            NotificationService.Notify(NotificationSeverity.Error, L["Users.DeleteError"]);
         }
     }
 

@@ -12,7 +12,7 @@ internal static class InvitationEmailContent
 {
     /// <summary>Subject line of the invitation email (kept short for inbox preview).</summary>
     public static string Subject(string fromName) =>
-        $"Invitație de acces — {fromName}";
+        $"Access invitation — {fromName}";
 
     /// <summary>
     /// Constructs the visible HTML body. Uses inline styles only — embedded styles
@@ -24,7 +24,7 @@ internal static class InvitationEmailContent
         string invitedByDisplay,
         DateTime expiresAtUtc)
     {
-        var displayName = string.IsNullOrWhiteSpace(recipientName) ? "Bună" : $"Bună, {Escape(recipientName)}";
+        var displayName = string.IsNullOrWhiteSpace(recipientName) ? "Hello" : $"Hello, {Escape(recipientName)}";
         var expiryLocal = expiresAtUtc.ToString("dd.MM.yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
         var safeLink = Escape(invitationLink);
         var safeInviter = Escape(invitedByDisplay);
@@ -33,11 +33,11 @@ internal static class InvitationEmailContent
         // rel="noreferrer noopener" prevents the token from leaking via the Referer header.
         return $$"""
 <!doctype html>
-<html lang="ro">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invitație SITIM</title>
+<title>SITIM Invitation</title>
 </head>
 <body style="margin:0;padding:0;background:#0b0f16;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#e6e9ee;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0b0f16;">
@@ -49,7 +49,7 @@ internal static class InvitationEmailContent
             <td style="padding:28px 32px 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
               <div style="font-size:22px;font-weight:600;color:#00b8a9;letter-spacing:-0.02em;">SITIM</div>
               <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:2px;">
-                Sistem pentru suportul diagnosticului imagistic
+                Medical imaging diagnostics support system
               </div>
             </td>
           </tr>
@@ -59,7 +59,7 @@ internal static class InvitationEmailContent
                 {{displayName}},
               </p>
               <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:rgba(255,255,255,0.78);">
-                {{safeInviter}} ți-a creat un cont pe platforma SITIM. Pentru a-l activa, setează o parolă apăsând butonul de mai jos.
+                {{safeInviter}} has created an account for you on the SITIM platform. To activate it, set a password by pressing the button below.
               </p>
             </td>
           </tr>
@@ -70,17 +70,17 @@ internal static class InvitationEmailContent
                  style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00c8b8,#0096c7);
                         color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;border-radius:10px;
                         box-shadow:0 4px 18px rgba(0,184,169,0.32);">
-                Setează parola
+                Set password
               </a>
             </td>
           </tr>
           <tr>
             <td style="padding:0 32px 24px;">
               <p style="margin:0 0 10px;font-size:13px;color:rgba(255,255,255,0.55);line-height:1.55;">
-                Linkul este valabil până la <strong style="color:rgba(255,255,255,0.85);">{{expiryLocal}}</strong> și poate fi folosit o singură dată.
+                The link is valid until <strong style="color:rgba(255,255,255,0.85);">{{expiryLocal}}</strong> and can be used only once.
               </p>
               <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.42);line-height:1.55;">
-                Dacă butonul nu funcționează, copiază manual adresa în browser:
+                If the button does not work, copy the address into your browser manually:
               </p>
               <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.58);
                         font-family:'Cascadia Code',Consolas,monospace;word-break:break-all;line-height:1.4;">
@@ -91,13 +91,13 @@ internal static class InvitationEmailContent
           <tr>
             <td style="padding:18px 32px 26px;border-top:1px solid rgba(255,255,255,0.06);">
               <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.42);line-height:1.55;">
-                Dacă nu te aștepți la această invitație, ignoră acest email — contul rămâne inactiv până când linkul este folosit.
+                If you were not expecting this invitation, ignore this email — the account stays inactive until the link is used.
               </p>
             </td>
           </tr>
         </table>
         <div style="margin-top:14px;font-size:11px;color:rgba(255,255,255,0.30);">
-          © {{DateTime.UtcNow.Year}} SITIM · Email automatizat, nu răspunde la această adresă.
+          © {{DateTime.UtcNow.Year}} SITIM · Automated email, do not reply to this address.
         </div>
       </td>
     </tr>
@@ -116,18 +116,18 @@ internal static class InvitationEmailContent
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(recipientName))
-            sb.AppendLine($"Bună, {recipientName},");
+            sb.AppendLine($"Hello, {recipientName},");
         else
-            sb.AppendLine("Bună,");
+            sb.AppendLine("Hello,");
         sb.AppendLine();
-        sb.AppendLine($"{invitedByDisplay} ți-a creat un cont pe platforma SITIM.");
-        sb.AppendLine("Pentru a-l activa, deschide următorul link și setează o parolă:");
+        sb.AppendLine($"{invitedByDisplay} has created an account for you on the SITIM platform.");
+        sb.AppendLine("To activate it, open the following link and set a password:");
         sb.AppendLine();
         sb.AppendLine(invitationLink);
         sb.AppendLine();
-        sb.AppendLine($"Linkul este valabil până la {expiresAtUtc:dd.MM.yyyy HH:mm} UTC și poate fi folosit o singură dată.");
+        sb.AppendLine($"The link is valid until {expiresAtUtc:dd.MM.yyyy HH:mm} UTC and can be used only once.");
         sb.AppendLine();
-        sb.AppendLine("Dacă nu te aștepți la această invitație, ignoră acest email.");
+        sb.AppendLine("If you were not expecting this invitation, ignore this email.");
         sb.AppendLine();
         sb.AppendLine($"— SITIM");
         return sb.ToString();

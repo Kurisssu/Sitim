@@ -4,9 +4,10 @@
 @inject SitimAuthStateProvider AuthProvider
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@inject IStringLocalizer<SharedResource> L
 @using Microsoft.AspNetCore.Components
 
-<PageTitle>SITIM — Autentificare</PageTitle>
+<PageTitle>@L["Login.PageTitle"]</PageTitle>
 
 @if (!_alreadyAuthenticated)
 {
@@ -18,8 +19,9 @@
                     <RadzenStack AlignItems="AlignItems.Center">
                         <RadzenIcon Icon="biotech" class="sitim-login-logo" style="font-size: 64px;" />
                         <RadzenText Text="SITIM" TextStyle="TextStyle.H4" class="rz-mb-0" />
-                        <RadzenText Text="Platformă de Diagnostic Imagistic" TextStyle="TextStyle.Subtitle1"
+                        <RadzenText Text="@L["Login.Tagline"]" TextStyle="TextStyle.Subtitle1"
                                     style="color: var(--rz-text-tertiary-color);" />
+                        <LanguageSwitcher />
                     </RadzenStack>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
@@ -35,12 +37,12 @@
                                 <RadzenTextBox @bind-Value="loginModel.Email" Name="Email" />
                             </RadzenFormField>
 
-                            <RadzenFormField Text="Parolă" Variant="Variant.Outlined">
+                            <RadzenFormField Text="@L["Login.Password"]" Variant="Variant.Outlined">
                                 <RadzenPassword @bind-Value="loginModel.Password" Name="Password" />
                             </RadzenFormField>
 
-                            <RadzenButton Text="Autentificare" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary"
-                                          Size="ButtonSize.Large" IsBusy="@isLoading" BusyText="Se autentifică..."
+                            <RadzenButton Text="@L["Login.SignIn"]" ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Primary"
+                                          Size="ButtonSize.Large" IsBusy="@isLoading" BusyText="@L["Login.SigningIn"]"
                                           Style="width: 100%;" Icon="login" />
                         </RadzenStack>
                     </RadzenTemplateForm>
@@ -100,7 +102,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Eroare de conexiune: {ex.Message}";
+            errorMessage = L["Login.ConnectionError", ex.Message];
         }
         finally
         {

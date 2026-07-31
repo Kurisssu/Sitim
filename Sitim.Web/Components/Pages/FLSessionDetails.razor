@@ -4,23 +4,24 @@
 @inject SitimApiClient Api
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Detalii sesiune FL — SITIM</PageTitle>
+<PageTitle>@L["FLDetails.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
         <RadzenColumn Size="12" SizeMD="8">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                 <RadzenButton Icon="arrow_back" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Size="ButtonSize.Small"
-                              title="Înapoi la dashboard"
+                              title="@L["FLDetails.BackToDashboard"]"
                               Click="@(() => Navigation.NavigateTo("/federated-learning"))" />
-                <RadzenText Text="Detalii sesiune FL" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+                <RadzenText Text="@L["FLDetails.Title"]" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
             </RadzenStack>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" AlignItems="AlignItems.Center">
-                <RadzenText Text="Actualizare automată la 5 sec" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                <RadzenText Text="@L["Common.AutoRefresh5s"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                <RadzenButton Text="@L["Common.Reload"]" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                               Click="@LoadSessionAsync" IsBusy="@_loading" />
             </RadzenStack>
         </RadzenColumn>
@@ -33,7 +34,7 @@
     else if (_session is null)
     {
         <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" AllowClose="false">
-            Sesiunea FL nu a fost găsită.
+            @L["FLDetails.NotFound"]
         </RadzenAlert>
     }
     else
@@ -41,13 +42,13 @@
         <RadzenRow Gap="1rem">
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard>
-                    <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@L["Common.Model"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                     <RadzenText Text="@_session.ModelKey" TextStyle="TextStyle.Body1" />
                 </RadzenCard>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard>
-                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                     <div>
                         <RadzenBadge BadgeStyle="@GetSessionBadgeStyle(_session.Status)" Text="@_session.Status" />
                     </div>
@@ -55,13 +56,13 @@
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard>
-                    <RadzenText Text="Runda curentă" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@L["FLDetails.CurrentRound"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                     <RadzenText Text="@($"{_session.CurrentRound}/{_session.TotalRounds}")" TextStyle="TextStyle.Body1" />
                 </RadzenCard>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard>
-                    <RadzenText Text="Participanți" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                    <RadzenText Text="@L["FL.Participants"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                     <RadzenText Text="@_session.Participants.Count.ToString()" TextStyle="TextStyle.Body1" />
                 </RadzenCard>
             </RadzenColumn>
@@ -71,9 +72,9 @@
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenCard>
                     <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="Pornită la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["Progress.StartedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@(_session.StartedAtUtc.HasValue ? FormatDateTime(_session.StartedAtUtc.Value) : "—")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="Finalizată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["Results.FinishedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@(_session.FinishedAtUtc.HasValue ? FormatDateTime(_session.FinishedAtUtc.Value) : "—")" TextStyle="TextStyle.Body2" />
                     </RadzenStack>
                 </RadzenCard>
@@ -81,9 +82,9 @@
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenCard>
                     <RadzenStack Gap="0.5rem">
-                        <RadzenText Text="Model output" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["FLDetails.ModelOutput"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@(_session.OutputModelPath ?? "—")" TextStyle="TextStyle.Body2" />
-                        <RadzenText Text="Ultima eroare" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["FLDetails.LastError"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@(_session.LastError ?? "—")" TextStyle="TextStyle.Body2" />
                     </RadzenStack>
                 </RadzenCard>
@@ -96,8 +97,8 @@
                 <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                     <RadzenColumn Size="12" SizeMD="8">
                         <RadzenStack Gap="0.25rem">
-                            <RadzenText Text="Model publicat în registry" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
-                            <RadzenText Text="@(_publishedModel is null ? "Modelul nu este încă publicat în registry." : $"{_publishedModel.Name} (v{_publishedModel.Version})")" TextStyle="TextStyle.Body2" />
+                            <RadzenText Text="@L["FLDetails.PublishedModel"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@(_publishedModel is null ? L["FLDetails.NotPublishedYet"].Value : $"{_publishedModel.Name} (v{_publishedModel.Version})")" TextStyle="TextStyle.Body2" />
                             @if (_publishedModel is not null)
                             {
                                 <RadzenText Text="@($"Storage: {_publishedModel.StorageFileName}")" TextStyle="TextStyle.Caption" />
@@ -108,11 +109,11 @@
                         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
                             @if (_publishedModel is not null && _publishedModel.IsActive)
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Model activ în inferență" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@L["FLDetails.ModelActiveInference"]" />
                             }
                             else if (_publishedModel is not null)
                             {
-                                <RadzenButton Text="Activează modelul FL"
+                                <RadzenButton Text="@L["FLDetails.ActivateModel"]"
                                               Icon="published_with_changes"
                                               ButtonStyle="ButtonStyle.Primary"
                                               Size="ButtonSize.Small"
@@ -127,10 +128,10 @@
 
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
-                <RadzenText Text="Participanți" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@L["FL.Participants"]" TextStyle="TextStyle.H6" />
                 @if (!_session.Participants.Any())
                 {
-                    <RadzenText Text="Nu există participanți înregistrați." TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@L["FLDetails.NoParticipants"]" TextStyle="TextStyle.Body2" />
                 }
                 else
                 {
@@ -158,10 +159,10 @@
 
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
-                <RadzenText Text="Evoluție metrici (loss/accuracy)" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@L["FLDetails.MetricsEvolution"]" TextStyle="TextStyle.H6" />
                 @if (!_session.Rounds.Any())
                 {
-                    <RadzenText Text="Nu există încă runde finalizate." TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@L["FLDetails.NoRoundsYet"]" TextStyle="TextStyle.Body2" />
                 }
                 else
                 {
@@ -179,10 +180,10 @@
                                           ValueProperty="AggregatedMacroF1"
                                           Title="F1 macro" />
                         <RadzenCategoryAxis>
-                            <RadzenAxisTitle Text="Runda" />
+                            <RadzenAxisTitle Text="@L["FLDetails.Round"]" />
                         </RadzenCategoryAxis>
                         <RadzenValueAxis>
-                            <RadzenAxisTitle Text="Valoare metrică" />
+                            <RadzenAxisTitle Text="@L["FLDetails.MetricValue"]" />
                         </RadzenValueAxis>
                     </RadzenChart>
 
@@ -190,11 +191,11 @@
                         <table class="rz-datatable-tablewrapper" style="width:100%;border-collapse:collapse;">
                             <thead>
                                 <tr style="text-align:left;border-bottom:1px solid var(--rz-base-300);">
-                                    <th style="padding:0.5rem;">Runda</th>
-                                    <th style="padding:0.5rem;">Loss agregat</th>
-                                    <th style="padding:0.5rem;">Accuracy agregat</th>
-                                    <th style="padding:0.5rem;">F1 macro agregat</th>
-                                    <th style="padding:0.5rem;">Finalizată la</th>
+                                    <th style="padding:0.5rem;">@L["FLDetails.Round"]</th>
+                                    <th style="padding:0.5rem;">@L["FLDetails.AggregatedLoss"]</th>
+                                    <th style="padding:0.5rem;">@L["FLDetails.AggregatedAccuracy"]</th>
+                                    <th style="padding:0.5rem;">@L["FLDetails.AggregatedF1"]</th>
+                                    <th style="padding:0.5rem;">@L["Results.FinishedAt"]</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -217,17 +218,17 @@
 
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
-                <RadzenText Text="Cost de comunicare" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@L["FLDetails.CommunicationCost"]" TextStyle="TextStyle.H6" />
                 <RadzenText TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);">
-                    Volumul de parametri transmiși de clienți.
+                    @L["FLDetails.CommunicationCostHint"]
                 </RadzenText>
                 <RadzenRow Gap="1rem">
                     <RadzenColumn Size="6" SizeMD="3">
-                        <RadzenText Text="Total sesiune" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["FLDetails.SessionTotal"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@FormatMb(_session.TotalCommunicationBytes)" TextStyle="TextStyle.Body1" />
                     </RadzenColumn>
                     <RadzenColumn Size="6" SizeMD="4">
-                        <RadzenText Text="Mediu / client / rundă" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                        <RadzenText Text="@L["FLDetails.AvgPerClientRound"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                         <RadzenText Text="@FormatMb((long)_session.AvgPayloadBytesPerClientPerRound)" TextStyle="TextStyle.Body1" />
                     </RadzenColumn>
                 </RadzenRow>
@@ -244,32 +245,32 @@
                         <RadzenColumnSeries Data="@roundsWithPayload"
                                             CategoryProperty="RoundNumber"
                                             ValueProperty="Mb"
-                                            Title="MB / rundă" />
+                                            Title="@L["FLDetails.MbPerRound"]" />
                         <RadzenCategoryAxis>
-                            <RadzenAxisTitle Text="Runda" />
+                            <RadzenAxisTitle Text="@L["FLDetails.Round"]" />
                         </RadzenCategoryAxis>
                         <RadzenValueAxis>
-                            <RadzenAxisTitle Text="MB transmiși" />
+                            <RadzenAxisTitle Text="@L["FLDetails.MbTransferred"]" />
                         </RadzenValueAxis>
                     </RadzenChart>
                 }
                 else
                 {
-                    <RadzenText Text="Nu există încă date de cost de comunicare." TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@L["FLDetails.NoCommunicationData"]" TextStyle="TextStyle.Body2" />
                 }
             </RadzenStack>
         </RadzenCard>
 
         <RadzenCard>
             <RadzenStack Gap="0.75rem">
-                <RadzenText Text="Distribuția claselor pe instituții (non-IID)" TextStyle="TextStyle.H6" />
+                <RadzenText Text="@L["FLDetails.ClassDistribution"]" TextStyle="TextStyle.H6" />
                 @{
                     var histograms = ParseHistograms();
                     var allClasses = histograms.Values.SelectMany(h => h.Keys).Distinct().OrderBy(c => c).ToList();
                 }
                 @if (!histograms.Any() || !allClasses.Any())
                 {
-                    <RadzenText Text="Distribuția claselor nu a fost încă raportată de clienți." TextStyle="TextStyle.Body2" />
+                    <RadzenText Text="@L["FLDetails.NoClassDistribution"]" TextStyle="TextStyle.Body2" />
                 }
                 else
                 {
@@ -278,15 +279,15 @@
                         {
                             if (histograms.TryGetValue(participant.InstitutionId, out var hist))
                             {
-                                var data = allClasses.Select(c => new ClassBucket($"Clasa {c}", hist.GetValueOrDefault(c, 0))).ToList();
+                                var data = allClasses.Select(c => new ClassBucket(L["Results.ClassNo", c], hist.GetValueOrDefault(c, 0))).ToList();
                                 <RadzenColumnSeries Data="@data" CategoryProperty="ClassLabel" ValueProperty="Count" Title="@participant.InstitutionName" />
                             }
                         }
                         <RadzenCategoryAxis>
-                            <RadzenAxisTitle Text="Clasă" />
+                            <RadzenAxisTitle Text="@L["FLDetails.Class"]" />
                         </RadzenCategoryAxis>
                         <RadzenValueAxis>
-                            <RadzenAxisTitle Text="Număr exemple" />
+                            <RadzenAxisTitle Text="@L["FLDetails.SampleCount"]" />
                         </RadzenValueAxis>
                     </RadzenChart>
 
@@ -294,10 +295,10 @@
                         <table class="rz-datatable-tablewrapper" style="width:100%;border-collapse:collapse;">
                             <thead>
                                 <tr style="text-align:left;border-bottom:1px solid var(--rz-base-300);">
-                                    <th style="padding:0.5rem;">Instituție</th>
+                                    <th style="padding:0.5rem;">@L["Users.Institution"]</th>
                                     @foreach (var c in allClasses)
                                     {
-                                        <th style="padding:0.5rem;">Clasa @c</th>
+                                        <th style="padding:0.5rem;">@L["Results.ClassNo", c]</th>
                                     }
                                     <th style="padding:0.5rem;">Total</th>
                                 </tr>
@@ -361,7 +362,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {
@@ -395,17 +396,17 @@
             var activated = await Api.ActivateFLPublishedModelAsync(_sessionId);
             if (activated is null)
             {
-                Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut activa modelul FL.");
+                Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["FLDetails.ActivateFailed"]);
                 return;
             }
 
             _publishedModel = activated;
-            Notification.Notify(NotificationSeverity.Success, "Succes", "Modelul FL a fost activat pentru inferență.");
+            Notification.Notify(NotificationSeverity.Success, L["Common.Success"], L["FLDetails.ActivatedDetail"]);
             await LoadSessionAsync();
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {

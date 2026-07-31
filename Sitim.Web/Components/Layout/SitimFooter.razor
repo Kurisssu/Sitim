@@ -1,4 +1,5 @@
 @inject NavigationManager Navigation
+@inject IStringLocalizer<SharedResource> L
 
 <footer class="sitim-footer">
     <div class="sitim-footer-inner">
@@ -10,35 +11,35 @@
                     <span>SITIM</span>
                 </div>
                 <p class="sitim-footer-tagline">
-                    Platformă inteligentă pentru imagistică medicală — gestiune DICOM, analiză AI asistată și federated learning cross-instituții, într-un singur loc.
+                    @L["Footer.Tagline"]
                 </p>
                 <div class="sitim-footer-status" role="status" aria-live="polite">
                     <span class="sitim-footer-status-dot" aria-hidden="true"></span>
-                    <span class="sitim-footer-status-text">Toate sistemele funcționează</span>
+                    <span class="sitim-footer-status-text">@L["Footer.AllSystemsOperational"]</span>
                 </div>
             </div>
 
             <div class="sitim-footer-col">
-                <h4 class="sitim-footer-col-title">Resurse</h4>
+                <h4 class="sitim-footer-col-title">@L["Footer.Resources"]</h4>
                 <ul class="sitim-footer-links">
-                    <li><a href="/">Bun venit</a></li>
-                    <li><a href="/studies">Lista de studii</a></li>
-                    <li><a href="/ai-analyses">Analize AI</a></li>
-                    <li><a href="/ai-models">Modele AI</a></li>
+                    <li><a href="/">@L["Nav.Welcome"]</a></li>
+                    <li><a href="/studies">@L["Nav.Studies"]</a></li>
+                    <li><a href="/ai-analyses">@L["Nav.AIAnalyses"]</a></li>
+                    <li><a href="/ai-models">@L["Nav.AIModels"]</a></li>
                 </ul>
             </div>
 
             <div class="sitim-footer-col">
-                <h4 class="sitim-footer-col-title">Proiect</h4>
+                <h4 class="sitim-footer-col-title">@L["Footer.Project"]</h4>
                 <ul class="sitim-footer-links">
                     <li>
                         <a href="https://github.com/Kurisssu/Sitim" target="_blank" rel="noopener noreferrer">
-                            Cod sursă
+                            @L["Footer.SourceCode"]
                         </a>
                     </li>
                     <li>
                         <a href="https://github.com/Kurisssu/Sitim/issues" target="_blank" rel="noopener noreferrer">
-                            Probleme &amp; sugestii
+                            @L["Footer.Issues"]
                         </a>
                     </li>
                     <li>
@@ -88,12 +89,12 @@
 
         <div class="sitim-footer-bottom">
             <span class="sitim-footer-copyright">
-                © @DateTime.UtcNow.Year SITIM. Toate drepturile rezervate.
+                © @DateTime.UtcNow.Year SITIM. @L["Footer.AllRightsReserved"]
             </span>
             <nav class="sitim-footer-legal" aria-label="Legal">
-                <a href="#">Termeni</a>
+                <a href="#">@L["Footer.Terms"]</a>
                 <span class="sitim-footer-legal-sep" aria-hidden="true">·</span>
-                <a href="#">Confidențialitate</a>
+                <a href="#">@L["Footer.Privacy"]</a>
                 <span class="sitim-footer-legal-sep" aria-hidden="true">·</span>
                 <a href="#">Cookies</a>
             </nav>

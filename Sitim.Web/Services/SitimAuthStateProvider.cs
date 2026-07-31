@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Localization;
 using Microsoft.JSInterop;
 
 namespace Sitim.Web.Services;
@@ -22,6 +23,7 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider, IDispo
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IJSRuntime _js;
     private readonly ILogger<SitimAuthStateProvider> _logger;
+    private readonly IStringLocalizer<SharedResource> _localizer;
     private bool _cookieChecked;
 
     // Proactive refresh timer — fires before the access token expires so the user
@@ -34,13 +36,15 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider, IDispo
         SitimApiClient api,
         IHttpContextAccessor httpContextAccessor,
         IJSRuntime js,
-        ILogger<SitimAuthStateProvider> logger)
+        ILogger<SitimAuthStateProvider> logger,
+        IStringLocalizer<SharedResource> localizer)
     {
         _store = store;
         _api = api;
         _httpContextAccessor = httpContextAccessor;
         _js = js;
         _logger = logger;
+        _localizer = localizer;
     }
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -126,7 +130,7 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider, IDispo
     {
         var loginResult = await _api.LoginAsync(email, password);
         if (loginResult is null)
-            return "Email sau parolă incorectă.";
+            return _localizer["Login.InvalidCredentials"];
 
         _store.Token = loginResult.AccessToken;
         _store.RefreshToken = loginResult.RefreshToken;
@@ -135,7 +139,7 @@ public sealed class SitimAuthStateProvider : AuthenticationStateProvider, IDispo
         if (me is null)
         {
             _store.Clear();
-            return "Nu s-au putut obține datele utilizatorului.";
+            return _localizer["Login.UserFetchFailed"];
         }
 
         _store.UserId = me.UserId;

@@ -1,11 +1,12 @@
 @inject NavigationManager NavigationManager
+@inject IStringLocalizer<SharedResource> L
 <!DOCTYPE html>
-<html lang="ro">
+<html lang="@System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SITIM — Diagnostic Imagistic</title>
+    <title>@L["App.Title"]</title>
     <base href="@NavigationManager.BaseUri" />
     <RadzenTheme Theme="standard-dark" />
     <link rel="stylesheet" href="css/site.css" />

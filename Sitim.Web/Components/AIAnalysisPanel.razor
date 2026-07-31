@@ -4,15 +4,16 @@
 @inject SitimApiClient Api
 @inject NotificationService Notification
 @inject DialogService Dialog
+@inject IStringLocalizer<SharedResource> L
 
 <RadzenCard>
     <RadzenRow AlignItems="AlignItems.Center">
         <RadzenColumn Size="12" SizeMD="8">
-            <RadzenText Text="Analiză AI" TextStyle="TextStyle.H6" class="rz-mb-0" />
+            <RadzenText Text="@L["Panel.AIAnalysis"]" TextStyle="TextStyle.H6" class="rz-mb-0" />
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="Rulează Analiză" Icon="psychology" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
+                <RadzenButton Text="@L["Panel.RunAnalysis"]" Icon="psychology" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Small"
                               Disabled="@(isRunningAnalysis || AvailableModels.Count == 0)"
                               Click="@OnRunAnalysis" />
             </RadzenStack>
@@ -26,13 +27,13 @@
     else if (AvailableModels.Count == 0)
     {
         <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Dark" AllowClose="false" class="rz-mt-3">
-            Nu sunt modele AI disponibile pentru incarcare. Incarcati mai intai un model din pagina "Modele AI".
+            @L["Panel.NoModelsAvailable"]
         </RadzenAlert>
     }
     else
     {
         <RadzenStack Gap="1rem" class="rz-mt-3">
-            <RadzenFormField Text="Model AI" Variant="Variant.Text">
+            <RadzenFormField Text="@L["Panel.AIModel"]" Variant="Variant.Text">
                 <ChildContent>
                     <RadzenDropDown @bind-Value="@SelectedModelId" Data="@AvailableModels" 
                                    TextProperty="Name" ValueProperty="Id" Style="width: 100%;" />
@@ -44,7 +45,7 @@
                 <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark" AllowClose="false">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                         <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Info" Value="100" ShowValue="false" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Small" />
-                        <span>Se execută analiza AI... (aproximativ 30-60 secunde)</span>
+                        <span>@L["Panel.RunningAnalysis"]</span>
                     </RadzenStack>
                 </RadzenAlert>
             }
@@ -52,10 +53,10 @@
             @if (LastAnalysisResult != null && !isRunningAnalysis)
             {
                 <RadzenCard style="background-color: var(--rz-state-light-color);">
-                    <RadzenText Text="Rezultat Ultim" TextStyle="TextStyle.Subtitle2" class="rz-mb-2" />
+                    <RadzenText Text="@L["Panel.LastResult"]" TextStyle="TextStyle.Subtitle2" class="rz-mb-2" />
                     <RadzenRow>
                         <RadzenColumn Size="12" SizeMD="6">
-                            <RadzenFormField Text="Predicție" Variant="Variant.Text">
+                            <RadzenFormField Text="@L["Panel.Prediction"]" Variant="Variant.Text">
                                 <ChildContent>
                                     <RadzenTextBox ReadOnly="true" 
                                                  Value="@GetDiagnosisText(LastAnalysisResult.PredictionClass)" 
@@ -64,7 +65,7 @@
                             </RadzenFormField>
                         </RadzenColumn>
                         <RadzenColumn Size="12" SizeMD="6">
-                            <RadzenFormField Text="Încredere" Variant="Variant.Text">
+                            <RadzenFormField Text="@L["Common.Confidence"]" Variant="Variant.Text">
                                 <ChildContent>
                                     <RadzenTextBox ReadOnly="true" 
                                                  Value="@($"{LastAnalysisResult.Confidence:P2}")" 
@@ -75,7 +76,7 @@
                     </RadzenRow>
                     <RadzenRow class="rz-mt-2">
                         <RadzenColumn Size="12" SizeMD="6">
-                            <RadzenFormField Text="Model" Variant="Variant.Text">
+                            <RadzenFormField Text="@L["Common.Model"]" Variant="Variant.Text">
                                 <ChildContent>
                                     <RadzenTextBox ReadOnly="true" 
                                                  Value="@($"{LastAnalysisResult.ModelName} v{LastAnalysisResult.ModelVersion}")" 
@@ -84,7 +85,7 @@
                             </RadzenFormField>
                         </RadzenColumn>
                         <RadzenColumn Size="12" SizeMD="6">
-                            <RadzenFormField Text="Timp procesare" Variant="Variant.Text">
+                            <RadzenFormField Text="@L["Common.ProcessingTime"]" Variant="Variant.Text">
                                 <ChildContent>
                                     <RadzenTextBox ReadOnly="true"
                                                  Value="@Sitim.Web.Services.DurationFormatter.Format(LastAnalysisResult.ProcessingTimeMs)"
@@ -95,7 +96,7 @@
                     </RadzenRow>
                     <RadzenRow class="rz-mt-2">
                         <RadzenColumn Size="12">
-                            <RadzenText Text="Probabilități pe Clasă" TextStyle="TextStyle.Caption" class="rz-mb-2" style="color: var(--rz-text-tertiary-color);" />
+                            <RadzenText Text="@L["Panel.ClassProbabilities"]" TextStyle="TextStyle.Caption" class="rz-mb-2" style="color: var(--rz-text-tertiary-color);" />
                             <RadzenRow class="rz-mt-1">
                                 @foreach (var prob in LastAnalysisResult.AllProbabilities)
                                 {
@@ -150,7 +151,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", $"Failed to load AI models: {ex.Message}");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Panel.LoadModelsFailed", ex.Message]);
         }
         finally
         {
@@ -162,7 +163,7 @@
     {
         if (SelectedModelId == Guid.Empty)
         {
-            Notification.Notify(NotificationSeverity.Warning, "Atenție", "Selectați un model AI.");
+            Notification.Notify(NotificationSeverity.Warning, L["Common.Warning"], L["Panel.SelectModel"]);
             return;
         }
 
@@ -175,17 +176,17 @@
             if (result != null)
             {
                 LastAnalysisResult = result;
-                Notification.Notify(NotificationSeverity.Success, "Succes", 
-                    $"Analiza AI finalizată cu succes. Predicție: {GetDiagnosisText(result.PredictionClass)} ({result.Confidence:P2})");
+                Notification.Notify(NotificationSeverity.Success, L["Common.Success"],
+                    L["Panel.AnalysisComplete", GetDiagnosisText(result.PredictionClass), $"{result.Confidence:P2}"]);
             }
             else
             {
-                Notification.Notify(NotificationSeverity.Error, "Eroare", "Failed to run AI analysis");
+                Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Panel.RunAnalysisError"]);
             }
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", $"AI analysis failed: {ex.Message}");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Panel.RunAnalysisFailed", ex.Message]);
         }
         finally
         {

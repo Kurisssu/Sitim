@@ -174,7 +174,7 @@ namespace Sitim.Api.Controllers
             var expiresAtUtc = DateTime.UtcNow.Add(lifetime);
             var inviterDisplay = User.FindFirstValue(ClaimTypes.Email)
                                   ?? User.Identity?.Name
-                                  ?? "Un administrator SITIM";
+                                  ?? "A SITIM administrator";
 
             var sent = await _email.SendInvitationAsync(
                 recipientEmail: user.Email!,

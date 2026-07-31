@@ -4,15 +4,16 @@
 @inject NotificationService Notification
 @inject NavigationManager Navigation
 @inject IConfiguration Config
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Administrare — SITIM</PageTitle>
+<PageTitle>@L["Admin.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
-    <RadzenText Text="Administrare" TextStyle="TextStyle.DisplayH5" />
+    <RadzenText Text="@L["Nav.Admin"]" TextStyle="TextStyle.DisplayH5" />
 
     @* ── Health Check ───────────────────────────────── *@
     <RadzenCard>
-        <RadzenText Text="Stare sistem" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenText Text="@L["Admin.SystemStatus"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
         <RadzenRow AlignItems="AlignItems.Center" Gap="1rem">
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
@@ -30,40 +31,40 @@
                     }
                     else
                     {
-                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="Neverificat" />
+                        <RadzenBadge BadgeStyle="BadgeStyle.Light" Text="@L["Admin.Unchecked"]" />
                     }
                 </RadzenStack>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="6">
-                <RadzenButton Text="Verifică" Icon="health_and_safety" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                              Click="@CheckHealth" IsBusy="@isCheckingHealth" BusyText="Se verifică..." />
+                <RadzenButton Text="@L["Admin.Check"]" Icon="health_and_safety" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                              Click="@CheckHealth" IsBusy="@isCheckingHealth" BusyText="@L["Admin.Checking"]" />
             </RadzenColumn>
         </RadzenRow>
     </RadzenCard>
 
-    @* ── Acțiuni rapide ─────────────────────────────── *@
+    @* ── Quick actions ─────────────────────────────── *@
     <RadzenCard>
-        <RadzenText Text="Acțiuni rapide" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenText Text="@L["Admin.QuickActions"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
         <RadzenStack Gap="1rem">
             <RadzenRow AlignItems="AlignItems.Center">
                 <RadzenColumn Size="12" SizeMD="8">
                     <RadzenStack>
-                        <RadzenText Text="Sincronizare completă Orthanc → DB" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
-                        <RadzenText Text="Sincronizează toate studiile din Orthanc în baza de date locală."
+                        <RadzenText Text="@L["Admin.FullSync"]" TextStyle="TextStyle.Subtitle2" class="rz-mb-0" />
+                        <RadzenText Text="@L["Admin.FullSyncHint"]"
                                     TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                     </RadzenStack>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="4">
                     <RadzenButton Text="Sync All" Icon="sync" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
-                                  Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="Se sincronizează..." />
+                                  Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="@L["Admin.SyncingAll"]" />
                 </RadzenColumn>
             </RadzenRow>
         </RadzenStack>
     </RadzenCard>
 
-    @* ── Linkuri externe ────────────────────────────── *@
+    @* ── External links ────────────────────────────── *@
     <RadzenCard>
-        <RadzenText Text="Linkuri externe" TextStyle="TextStyle.H6" class="rz-mb-3" />
+        <RadzenText Text="@L["Admin.ExternalLinks"]" TextStyle="TextStyle.H6" class="rz-mb-3" />
         <RadzenStack Gap="0.5rem">
             <RadzenLink Text="Hangfire Dashboard" Path="@hangfireUrl" Target="_blank" Icon="open_in_new"
                         Style="font-size: 1rem;" />
@@ -99,7 +100,7 @@
         Notification.Notify(
             apiHealthy.Value ? NotificationSeverity.Success : NotificationSeverity.Error,
             "Health Check",
-            apiHealthy.Value ? "API-ul este online." : "API-ul nu răspunde.");
+            apiHealthy.Value ? L["Admin.ApiOnline"] : L["Admin.ApiNotResponding"]);
     }
 
     private async Task OnSyncAll()
@@ -108,15 +109,15 @@
         try
         {
             var count = await Api.SyncAllStudiesAsync();
-            var msg = count == 0
-                ? "Nu există studii noi pentru această instituție în Orthanc."
-                : $"{count} {(count == 1 ? "studiu sincronizat" : "studii sincronizate")}.";
+            string msg = count == 0
+                ? L["Studies.NoNewStudies"]
+                : count == 1 ? L["Studies.SyncedOne"] : L["Studies.SyncedMany", count];
             var severity = count == 0 ? NotificationSeverity.Info : NotificationSeverity.Success;
-            Notification.Notify(severity, "Sincronizare", msg);
+            Notification.Notify(severity, L["StudyDetails.Sync"], msg);
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {

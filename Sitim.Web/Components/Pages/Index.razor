@@ -5,19 +5,20 @@
 @inject NotificationService Notification
 @inject SitimAuthStateProvider AuthProvider
 @inject AuthTokenStore TokenStore
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Lista de studii — SITIM</PageTitle>
+<PageTitle>@L["Studies.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
         <RadzenColumn Size="12" SizeMD="6">
-            <RadzenText Text="Lista de studii" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+            <RadzenText Text="@L["Nav.Studies"]" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="6">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="Sincronizare Orthanc" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
-                              Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="Sincronizare..." Size="ButtonSize.Small" />
-                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Light"
+                <RadzenButton Text="@L["Studies.SyncOrthanc"]" Icon="sync" ButtonStyle="ButtonStyle.Secondary"
+                              Click="@OnSyncAll" IsBusy="@isSyncing" BusyText="@L["Studies.Syncing"]" Size="ButtonSize.Small" />
+                <RadzenButton Text="@L["Common.Reload"]" Icon="refresh" ButtonStyle="ButtonStyle.Light"
                               Click="@LoadStudies" Size="ButtonSize.Small" />
             </RadzenStack>
         </RadzenColumn>
@@ -32,7 +33,7 @@
         @if (!studies.Any())
         {
             <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-                Nu există studii. Apasă „Sincronizare Orthanc” sau importă studii noi.
+                @L["Studies.Empty"]
             </RadzenAlert>
         }
         else
@@ -45,19 +46,19 @@
                             <RadzenColumn Size="12" SizeMD="10">
                                 <RadzenRow>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Common.Patient"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@(study.PatientName ?? "—")" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="ID Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Studies.PatientId"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@(study.PatientId ?? "—")" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Data studiu" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Studies.StudyDate"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@FormatStudyDate(study.StudyDate)" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="3">
-                                        <RadzenText Text="Modalități" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Studies.Modalities"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <div>
                                             @foreach (var mod in study.ModalitiesInStudy)
                                             {
@@ -74,11 +75,11 @@
                             <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
                                     <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" Size="ButtonSize.Small"
-                                                  Click="@(() => GoToStudy(study.OrthancStudyId))" title="Detalii studiu" />
+                                                  Click="@(() => GoToStudy(study.OrthancStudyId))" title="@L["Studies.StudyDetails"]" />
                                     @if (IsAdminOrAbove)
                                     {
                                         <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Variant="Variant.Text" Size="ButtonSize.Small"
-                                                      Click="@(() => ConfirmDelete(study))" title="Șterge studiu" />
+                                                      Click="@(() => ConfirmDelete(study))" title="@L["Studies.DeleteStudy"]" />
                                     }
                                 </RadzenStack>
                             </RadzenColumn>
@@ -98,17 +99,17 @@
             <RadzenStack Gap="1rem">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
                     <RadzenIcon Icon="warning" style="font-size:32px;color:var(--rz-danger);" />
-                    <RadzenText Text="Confirmare ștergere studiu" TextStyle="TextStyle.H6" class="rz-mb-0" />
+                    <RadzenText Text="@L["Studies.ConfirmDeleteTitle"]" TextStyle="TextStyle.H6" class="rz-mb-0" />
                 </RadzenStack>
                 <RadzenText>
-                    Ești sigur că vrei să ștergi definitiv studiul pacientului
-                    <strong>@(_deleteTarget.PatientName ?? _deleteTarget.PatientId ?? "necunoscut")</strong>
-                    din data <strong>@FormatStudyDate(_deleteTarget.StudyDate)</strong>?<br />
-                    Studiul va fi eliminat din Orthanc și din baza de date. Această acțiune nu poate fi anulată.
+                    @L["Studies.ConfirmDeleteQuestion",
+                       _deleteTarget.PatientName ?? _deleteTarget.PatientId ?? L["Studies.UnknownPatient"].Value,
+                       FormatStudyDate(_deleteTarget.StudyDate)]<br />
+                    @L["Studies.ConfirmDeleteWarning"]
                 </RadzenText>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDeleteDialog" Disabled="@_deleting" />
-                    <RadzenButton Text="Șterge definitiv" Icon="delete" ButtonStyle="ButtonStyle.Danger"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDeleteDialog" Disabled="@_deleting" />
+                    <RadzenButton Text="@L["Studies.DeletePermanently"]" Icon="delete" ButtonStyle="ButtonStyle.Danger"
                                   Click="@DoDelete" IsBusy="@_deleting" />
                 </RadzenStack>
             </RadzenStack>
@@ -146,7 +147,7 @@
         }
         catch (HttpRequestException)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut conecta la API. Verificați dacă serverul API rulează.");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Studies.ApiConnectionError"]);
         }
         finally
         {
@@ -160,16 +161,16 @@
         try
         {
             var count = await Api.SyncAllStudiesAsync();
-            var msg = count == 0
-                ? "Nu există studii noi pentru această instituție în Orthanc."
-                : $"{count} {(count == 1 ? "studiu sincronizat" : "studii sincronizate")} din Orthanc.";
+            string msg = count == 0
+                ? L["Studies.NoNewStudies"]
+                : count == 1 ? L["Studies.SyncedOne"] : L["Studies.SyncedMany", count];
             var severity = count == 0 ? NotificationSeverity.Info : NotificationSeverity.Success;
-            Notification.Notify(severity, "Sincronizare completă", msg);
+            Notification.Notify(severity, L["Studies.SyncComplete"], msg);
             await LoadStudies();
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare sincronizare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Studies.SyncError"], ex.Message);
         }
         finally
         {
@@ -199,14 +200,14 @@
 
         if (ok)
         {
-            Notification.Notify(NotificationSeverity.Success, "Studiu șters",
-                $"Studiul pacientului {_deleteTarget.PatientName ?? _deleteTarget.PatientId ?? "necunoscut"} a fost șters definitiv.");
+            Notification.Notify(NotificationSeverity.Success, L["Studies.Deleted"],
+                L["Studies.DeletedDetail", _deleteTarget.PatientName ?? _deleteTarget.PatientId ?? L["Studies.UnknownPatient"].Value]);
             CloseDeleteDialog();
             await LoadStudies();
         }
         else
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut șterge studiul. Verificați conexiunea cu Orthanc.");
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["Studies.DeleteFailed"]);
         }
     }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Radzen;
 using Sitim.Web.Components;
 using Sitim.Web.Services;
@@ -11,6 +12,23 @@ builder.Services.AddRazorComponents()
       .AddHubOptions(options => options.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 
 builder.Services.AddControllers();
+
+// ── Localization ─────────────────────────────────────────
+// English is the hard default: only an explicit user choice (culture cookie set
+// via /culture/set) switches the language. Browser Accept-Language must NOT
+// override it, hence the cookie-only provider list.
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[] { "en-US", "ro-RO" };
+    options.SetDefaultCulture("en-US")
+           .AddSupportedCultures(supportedCultures)
+           .AddSupportedUICultures(supportedCultures);
+    options.RequestCultureProviders = new List<IRequestCultureProvider>
+    {
+        new CookieRequestCultureProvider()
+    };
+});
 
 // Radzen
 builder.Services.AddRadzenComponents();
@@ -107,6 +125,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
+app.UseRequestLocalization();
 app.MapStaticAssets();
 app.UseAntiforgery();
 app.MapControllers();

@@ -3,17 +3,18 @@
 @inject SitimApiClient Api
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@inject IStringLocalizer<SharedResource> L
 
-<PageTitle>Analize AI — SITIM</PageTitle>
+<PageTitle>@L["AIAnalyses.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
         <RadzenColumn Size="12" SizeMD="8">
-            <RadzenText Text="Analize AI" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
-            <RadzenText Text="Analize în curs și analize finalizate" TextStyle="TextStyle.Body2" style="color: var(--rz-text-secondary-color);" />
+            <RadzenText Text="@L["Nav.AIAnalyses"]" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
+            <RadzenText Text="@L["AIAnalyses.Subtitle"]" TextStyle="TextStyle.Body2" style="color: var(--rz-text-secondary-color);" />
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
-            <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+            <RadzenButton Text="@L["Common.Reload"]" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                           Click="@LoadJobs" IsBusy="@isLoading" />
         </RadzenColumn>
     </RadzenRow>
@@ -25,7 +26,7 @@
     else if (!jobs.Any())
     {
         <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-            Nu există analize AI pentru instituția curentă.
+            @L["AIAnalyses.Empty"]
         </RadzenAlert>
     }
     else
@@ -38,32 +39,32 @@
                         <RadzenColumn Size="12" SizeMD="10">
                             <RadzenRow>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Pacient" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Patient"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(item.PatientName ?? "—")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="3">
-                                    <RadzenText Text="Studiu" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Study"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenStack Gap="0.125rem">
                                         <RadzenText Text="@item.OrthancStudyId" TextStyle="TextStyle.Body2" />
                                         <RadzenText Text="@FormatStudyDate(item.StudyDate)" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     </RadzenStack>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Model"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(item.ModelName ?? "—")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <div>
                                         <RadzenBadge BadgeStyle="@GetStatusBadgeStyle(item.Status)" Text="@item.Status" />
                                     </div>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.CreatedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@FormatDateTime(item.CreatedAt)" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="1">
-                                    <RadzenText Text="Încredere" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Confidence"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@(item.Confidence.HasValue ? item.Confidence.Value.ToString("P2") : "—")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                             </RadzenRow>
@@ -71,10 +72,10 @@
                         <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
                                 <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Variant="Variant.Text"
-                                              title="Deschide analiza"
+                                              title="@L["StudyDetails.OpenAnalysis"]"
                                               Click="@(() => OpenAnalysis(item))" />
                                 <RadzenButton Icon="folder_open" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" Variant="Variant.Text"
-                                              title="Deschide studiul"
+                                              title="@L["Import.OpenStudy"]"
                                               Click="@(() => OpenStudy(item))" />
                             </RadzenStack>
                         </RadzenColumn>
@@ -103,7 +104,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {

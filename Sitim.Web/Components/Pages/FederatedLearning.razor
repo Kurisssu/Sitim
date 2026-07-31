@@ -4,6 +4,7 @@
 @inject SitimApiClient Api
 @inject NavigationManager Navigation
 @inject NotificationService Notification
+@inject IStringLocalizer<SharedResource> L
 
 <PageTitle>Federated Learning — SITIM</PageTitle>
 
@@ -11,13 +12,13 @@
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
         <RadzenColumn Size="12" SizeMD="7">
             <RadzenText Text="Federated Learning" TextStyle="TextStyle.DisplayH5" class="rz-mb-0" />
-            <RadzenText Text="Sesiuni FL active și istoricul rundelor de antrenare" TextStyle="TextStyle.Body2" style="color: var(--rz-text-secondary-color);" />
+            <RadzenText Text="@L["FL.Subtitle"]" TextStyle="TextStyle.Body2" style="color: var(--rz-text-secondary-color);" />
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="5" class="rz-text-align-end">
             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
-                <RadzenButton Text="Sesiune nouă" Icon="play_circle" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
+                <RadzenButton Text="@L["FL.NewSession"]" Icon="play_circle" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Small"
                               Click="@OpenCreateDialog" Disabled="@_loading" />
-                <RadzenButton Text="Reîncarcă" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
+                <RadzenButton Text="@L["Common.Reload"]" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Size="ButtonSize.Small"
                               Click="@LoadSessionsAsync" IsBusy="@_loading" />
             </RadzenStack>
         </RadzenColumn>
@@ -25,17 +26,17 @@
 
     <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.End">
         <RadzenColumn Size="12" SizeMD="4" class="rz-text-align-end">
-            <RadzenText Text="Actualizare automată la 5 sec" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+            <RadzenText Text="@L["Common.AutoRefresh5s"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
         </RadzenColumn>
     </RadzenRow>
 
     <RadzenCard>
         <RadzenStack Gap="0.5rem">
-            <RadzenText Text="Clienți FL conectați (handshake instituție)" TextStyle="TextStyle.Body1" />
+            <RadzenText Text="@L["FL.ConnectedClients"]" TextStyle="TextStyle.Body1" />
             @if (!_connectedClients.Any(c => c.IsOnline))
             {
                 <RadzenAlert AlertStyle="AlertStyle.Warning" Shade="Shade.Light" AllowClose="false">
-                    Nu există clienți FL online. Configurează fiecare container cu <b>FL_INSTITUTION_ID=&lt;InstitutionId GUID&gt;</b>.
+                    @L["FL.NoClientsOnline"] <b>FL_INSTITUTION_ID=&lt;InstitutionId GUID&gt;</b>.
                 </RadzenAlert>
             }
             else
@@ -57,7 +58,7 @@
     else if (!_sessions.Any())
     {
         <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-            Nu există sesiuni FL create.
+            @L["FL.NoSessions"]
         </RadzenAlert>
     }
     else
@@ -70,25 +71,25 @@
                         <RadzenColumn Size="12" SizeMD="10">
                             <RadzenRow>
                                 <RadzenColumn Size="6" SizeMD="3">
-                                    <RadzenText Text="Model" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Model"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@session.ModelKey" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <div>
                                         <RadzenBadge BadgeStyle="@GetSessionBadgeStyle(session.Status)" Text="@session.Status" />
                                     </div>
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Runde" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["FL.Rounds"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@($"{session.CurrentRound}/{session.TotalRounds}")" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="2">
-                                    <RadzenText Text="Participanți" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["FL.Participants"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@session.ParticipantsCount.ToString()" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                                 <RadzenColumn Size="6" SizeMD="3">
-                                    <RadzenText Text="Creată la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                    <RadzenText Text="@L["Common.CreatedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                     <RadzenText Text="@FormatDateTime(session.CreatedAtUtc)" TextStyle="TextStyle.Body2" />
                                 </RadzenColumn>
                             </RadzenRow>
@@ -96,12 +97,12 @@
                         <RadzenColumn Size="12" SizeMD="2" class="rz-text-align-end">
                             <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.25rem">
                                 <RadzenButton Icon="visibility" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Variant="Variant.Text"
-                                              title="Detalii sesiune"
+                                              title="@L["FL.SessionDetails"]"
                                               Click="@(() => Navigation.NavigateTo($"/federated-learning/sessions/{session.Id}"))" />
                                 @if (IsSessionRunning(session.Status))
                                 {
                                     <RadzenButton Icon="stop_circle" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Variant="Variant.Text"
-                                                  title="Oprește sesiunea"
+                                                  title="@L["FL.StopSession"]"
                                                   Click="@(() => StopSessionAsync(session.Id))" />
                                 }
                             </RadzenStack>
@@ -115,22 +116,22 @@
 
 <SitimModal Show="@_showCreateDialog" OnClose="@CloseCreateDialog">
     <RadzenCard Style="min-width:440px;max-width:680px;padding:2rem;">
-        <RadzenText Text="Sesiune FL nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
+        <RadzenText Text="@L["FL.NewFLSession"]" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
-                <RadzenFormField Text="Cheie model *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["FL.ModelKey"]} *")" Style="width:100%">
                     <ChildContent>
-                        <RadzenTextBox @bind-Value="_newModelKey" Style="width:100%" Placeholder="ex: retinopathy_resnet18" />
+                        <RadzenTextBox @bind-Value="_newModelKey" Style="width:100%" Placeholder="retinopathy_resnet18" />
                     </ChildContent>
                 </RadzenFormField>
 
-                <RadzenFormField Text="Număr total runde *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["FL.TotalRounds"]} *")" Style="width:100%">
                     <ChildContent>
                         <RadzenNumeric @bind-Value="_newTotalRounds" Min="1" Step="1" TValue="int" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
 
                 <div class="sitim-field-label">
-                    Instituții participante <span class="sitim-required">*</span>
+                    @L["FL.ParticipatingInstitutions"] <span class="sitim-required">*</span>
                 </div>
                 <div class="sitim-institution-picker">
                     @{
@@ -140,7 +141,7 @@
                     {
                         <div class="sitim-institution-empty">
                             <RadzenIcon Icon="domain_disabled" />
-                            <span>Nu există instituții active.</span>
+                            <span>@L["FL.NoActiveInstitutions"]</span>
                         </div>
                     }
                     else
@@ -161,7 +162,7 @@
                                     <div class="sitim-institution-name">@inst.Name</div>
                                     <div class="sitim-institution-status">
                                         <span class="sitim-status-dot"></span>
-                                        @(isOnline ? "Client FL conectat" : "Client FL deconectat")
+                                        @(isOnline ? L["FL.ClientConnected"] : L["FL.ClientDisconnected"])
                                     </div>
                                 </div>
                             </div>
@@ -170,16 +171,16 @@
                 </div>
                 <div class="sitim-helper-row">
                     <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin: 0;">
-                        Selectați minimum o instituție activă. Doar instituțiile cu client FL conectat pot porni sesiunea.
+                        @L["FL.SelectionHint"]
                     </RadzenText>
                     <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color); margin: 0;">
-                        Selectate: <strong style="color: var(--sitim-accent);">@_selectedInstitutionIds.Count</strong> · Conectate: <strong style="color: var(--sitim-accent);">@_connectedClients.Count(c => c.IsOnline)</strong> / @activeInstitutions.Count
+                        @L["FL.Selected"] <strong style="color: var(--sitim-accent);">@_selectedInstitutionIds.Count</strong> · @L["FL.Connected"] <strong style="color: var(--sitim-accent);">@_connectedClients.Count(c => c.IsOnline)</strong> / @activeInstitutions.Count
                     </RadzenText>
                 </div>
 
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseCreateDialog" />
-                    <RadzenButton Text="Pornește sesiunea" Icon="play_circle" ButtonStyle="ButtonStyle.Primary"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseCreateDialog" />
+                    <RadzenButton Text="@L["FL.StartSession"]" Icon="play_circle" ButtonStyle="ButtonStyle.Primary"
                                   Click="@CreateSessionAsync" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
@@ -221,7 +222,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {
@@ -242,7 +243,7 @@
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {
@@ -289,19 +290,19 @@
     {
         if (string.IsNullOrWhiteSpace(_newModelKey))
         {
-            Notification.Notify(NotificationSeverity.Warning, "Validare", "Completați cheia modelului.");
+            Notification.Notify(NotificationSeverity.Warning, L["FL.Validation"], L["FL.ModelKeyRequired"]);
             return;
         }
 
         if (_newTotalRounds <= 0)
         {
-            Notification.Notify(NotificationSeverity.Warning, "Validare", "Numărul de runde trebuie să fie mai mare decât 0.");
+            Notification.Notify(NotificationSeverity.Warning, L["FL.Validation"], L["FL.RoundsPositive"]);
             return;
         }
 
         if (_selectedInstitutionIds.Count == 0)
         {
-            Notification.Notify(NotificationSeverity.Warning, "Validare", "Selectați minimum o instituție participantă.");
+            Notification.Notify(NotificationSeverity.Warning, L["FL.Validation"], L["FL.SelectOneInstitution"]);
             return;
         }
 
@@ -314,8 +315,8 @@
                 .ToList();
             Notification.Notify(
                 NotificationSeverity.Warning,
-                "Client FL lipsă",
-                "Instituții fără client FL online: " + string.Join(", ", missingLabels));
+                L["FL.MissingClient"],
+                L["FL.MissingClientDetail", string.Join(", ", missingLabels)]);
             return;
         }
 
@@ -325,17 +326,17 @@
             var created = await Api.StartFLSessionAsync(_newModelKey.Trim(), _newTotalRounds, _selectedInstitutionIds);
             if (created is null)
             {
-                Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut porni sesiunea FL.");
+                Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["FL.StartFailed"]);
                 return;
             }
 
-            Notification.Notify(NotificationSeverity.Success, "Succes", $"Sesiunea FL {created.Id} a fost pornită.");
+            Notification.Notify(NotificationSeverity.Success, L["Common.Success"], L["FL.SessionStarted", created.Id]);
             _showCreateDialog = false;
             await LoadSessionsAsync();
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
         finally
         {
@@ -350,16 +351,16 @@
             var stopped = await Api.StopFLSessionAsync(sessionId);
             if (!stopped)
             {
-                Notification.Notify(NotificationSeverity.Error, "Eroare", "Nu s-a putut opri sesiunea FL.");
+                Notification.Notify(NotificationSeverity.Error, L["Common.Error"], L["FL.StopFailed"]);
                 return;
             }
 
-            Notification.Notify(NotificationSeverity.Warning, "Sesiune oprită", $"Sesiunea {sessionId} a fost oprită.");
+            Notification.Notify(NotificationSeverity.Warning, L["FL.SessionStopped"], L["FL.SessionStoppedDetail", sessionId]);
             await LoadSessionsAsync();
         }
         catch (Exception ex)
         {
-            Notification.Notify(NotificationSeverity.Error, "Eroare", ex.Message);
+            Notification.Notify(NotificationSeverity.Error, L["Common.Error"], ex.Message);
         }
     }
 

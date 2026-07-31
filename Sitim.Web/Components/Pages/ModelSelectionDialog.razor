@@ -1,23 +1,24 @@
 @using Sitim.Web.Services
 @using Radzen.Blazor
 @inject DialogService DialogService
+@inject IStringLocalizer<SharedResource> L
 
 <div class="sitim-model-picker-root">
     <div class="sitim-model-picker-header">
         <div class="sitim-model-picker-title">
             <RadzenIcon Icon="psychology" />
-            <span>Selectează modelul AI pentru analiză</span>
+            <span>@L["ModelPicker.Title"]</span>
         </div>
         @if (Models is not null && Models.Any())
         {
-            <span class="sitim-model-picker-count">@Models.Count modele compatibile</span>
+            <span class="sitim-model-picker-count">@L["ModelPicker.CompatibleCount", Models.Count]</span>
         }
     </div>
 
     @if (Models == null || !Models.Any())
     {
         <RadzenAlert AlertStyle="AlertStyle.Warning" AllowClose="false">
-            Nu sunt modele disponibile pentru această modalitate DICOM.
+            @L["ModelPicker.NoModels"]
         </RadzenAlert>
     }
     else
@@ -60,7 +61,7 @@
                 {
                     <div class="sitim-model-details-empty">
                         <RadzenIcon Icon="article" />
-                        <span>Selectează un model din listă pentru detalii.</span>
+                        <span>@L["ModelPicker.SelectForDetails"]</span>
                     </div>
                 }
                 else
@@ -70,15 +71,15 @@
                             <div class="sitim-model-details-name">@SelectedModel.Name</div>
                             <div class="sitim-model-details-badges">
                                 <span class="sitim-model-chip is-version">v@(SelectedModel.Version)</span>
-                                <span class="sitim-model-chip is-modality">@(SelectedModel.TargetModality ?? "Orice modalitate")</span>
-                                <span class="sitim-model-chip is-accuracy">@(SelectedModel.Accuracy?.ToString("P2") ?? "Acuratețe n/a")</span>
+                                <span class="sitim-model-chip is-modality">@(SelectedModel.TargetModality ?? L["ModelPicker.AnyModality"].Value)</span>
+                                <span class="sitim-model-chip is-accuracy">@(SelectedModel.Accuracy?.ToString("P2") ?? L["ModelPicker.AccuracyNA"].Value)</span>
                             </div>
                         </div>
 
                         <div class="sitim-model-details-field">
-                            <div class="sitim-model-details-label">Descriere</div>
+                            <div class="sitim-model-details-label">@L["Common.Description"]</div>
                             <div class="sitim-model-details-value">
-                                @(string.IsNullOrWhiteSpace(SelectedModel.Description) ? "Fără descriere." : SelectedModel.Description)
+                                @(string.IsNullOrWhiteSpace(SelectedModel.Description) ? L["ModelPicker.NoDescription"].Value : SelectedModel.Description)
                             </div>
                         </div>
                     </div>
@@ -88,8 +89,8 @@
     }
 
     <div class="sitim-model-picker-actions">
-        <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
-        <RadzenButton Text="Pornește analiza" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
+        <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+        <RadzenButton Text="@L["ModelPicker.StartAnalysis"]" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary"
                       Click="@Select" Disabled="@(SelectedModelId == Guid.Empty)" />
     </div>
 </div>

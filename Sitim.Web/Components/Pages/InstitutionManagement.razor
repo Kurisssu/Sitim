@@ -2,18 +2,19 @@
 @using Sitim.Web.Services
 @inject SitimApiClient Api
 @inject NotificationService NotificationService
+@inject IStringLocalizer<SharedResource> L
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin")]
 
-<PageTitle>Gestionare Instituții – SITIM</PageTitle>
+<PageTitle>@L["Institutions.PageTitle"]</PageTitle>
 
 <RadzenStack Gap="1rem">
     <RadzenRow AlignItems="AlignItems.Center">
         <RadzenColumn Size="8">
-            <RadzenText Text="Instituții" TextStyle="TextStyle.H4" />
-            <RadzenText Text="Gestionarea instituțiilor înregistrate pe platformă." TextStyle="TextStyle.Body2" style="color: var(--rz-text-tertiary-color);" />
+            <RadzenText Text="@L["Nav.Institutions"]" TextStyle="TextStyle.H4" />
+            <RadzenText Text="@L["Institutions.Subtitle"]" TextStyle="TextStyle.Body2" style="color: var(--rz-text-tertiary-color);" />
         </RadzenColumn>
         <RadzenColumn Size="4" class="rz-text-align-end">
-            <RadzenButton Text="Instituție nouă" Icon="add" ButtonStyle="ButtonStyle.Primary"
+            <RadzenButton Text="@L["Institutions.New"]" Icon="add" ButtonStyle="ButtonStyle.Primary"
                           Click="@OpenCreateDialog" />
         </RadzenColumn>
     </RadzenRow>
@@ -27,7 +28,7 @@
         @if (!_institutions.Any())
         {
             <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Light" AllowClose="false">
-                Nu există instituții înregistrate.
+                @L["Institutions.Empty"]
             </RadzenAlert>
         }
         else
@@ -40,7 +41,7 @@
                             <RadzenColumn Size="12" SizeMD="10">
                                 <RadzenRow>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Denumire" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Institutions.Name"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@row.Name" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
@@ -48,24 +49,24 @@
                                         <RadzenText Text="@row.Slug" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="12" SizeMD="4">
-                                        <RadzenText Text="URL Orthanc" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Institutions.OrthancUrl"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@row.OrthancBaseUrl" TextStyle="TextStyle.Caption" />
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Status" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Common.Status"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <div>
                                             @if (row.IsActive)
                                             {
-                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Activ" />
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@L["Common.Active"]" />
                                             }
                                             else
                                             {
-                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Inactiv" />
+                                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@L["Common.Inactive"]" />
                                             }
                                         </div>
                                     </RadzenColumn>
                                     <RadzenColumn Size="6" SizeMD="2">
-                                        <RadzenText Text="Creat la" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
+                                        <RadzenText Text="@L["Institutions.CreatedAt"]" TextStyle="TextStyle.Caption" style="color: var(--rz-text-tertiary-color);" />
                                         <RadzenText Text="@row.CreatedAtUtc.ToString("yyyy-MM-dd")" TextStyle="TextStyle.Body2" />
                                     </RadzenColumn>
                                 </RadzenRow>
@@ -85,47 +86,47 @@
 @* Create dialog *@
 <SitimModal Show="@_showCreateDialog" OnClose="@CloseDialogs">
     <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;">
-        <RadzenText Text="Instituție nouă" TextStyle="TextStyle.H6" class="rz-mb-4" />
+        <RadzenText Text="@L["Institutions.New"]" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
-                <RadzenFormField Text="Denumire *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["Institutions.Name"]} *")" Style="width:100%">
                     <ChildContent>
-                        <RadzenTextBox @bind-Value="_newName" Placeholder="ex: Spitalul Clinic Județean Cluj" Style="width:100%" />
+                        <RadzenTextBox @bind-Value="_newName" Placeholder="@L["Institutions.NamePlaceholder"]" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
                 <RadzenFormField Text="Slug *" Style="width:100%">
                     <ChildContent>
-                        <RadzenTextBox @bind-Value="_newSlug" Placeholder="ex: scj-cluj" Style="width:100%" />
+                        <RadzenTextBox @bind-Value="_newSlug" Placeholder="@L["Institutions.SlugPlaceholder"]" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
-                <RadzenFormField Text="URL Orthanc *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["Institutions.OrthancUrl"]} *")" Style="width:100%">
                     <ChildContent>
-                        <RadzenTextBox @bind-Value="_newOrthancBaseUrl" Placeholder="ex: http://orthanc-scj-cluj:8042" Style="width:100%" />
+                        <RadzenTextBox @bind-Value="_newOrthancBaseUrl" Placeholder="@L["Institutions.OrthancUrlPlaceholder"]" Style="width:100%" />
                     </ChildContent>
                     <Helper>
                         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
-                            Adresa serverului Orthanc dedicat acestei instituții (hostname Docker sau URL extern)
+                            @L["Institutions.OrthancUrlHint"]
                         </RadzenText>
                     </Helper>
                 </RadzenFormField>
                 <RadzenRow>
                     <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenFormField Text="User Orthanc" Style="width:100%">
+                        <RadzenFormField Text="@L["Institutions.OrthancUser"]" Style="width:100%">
                             <ChildContent>
-                                <RadzenTextBox @bind-Value="_newOrthancUsername" Placeholder="ex: orthanc" Style="width:100%" />
+                                <RadzenTextBox @bind-Value="_newOrthancUsername" Placeholder="orthanc" Style="width:100%" />
                             </ChildContent>
                         </RadzenFormField>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenFormField Text="Parolă Orthanc" Style="width:100%">
+                        <RadzenFormField Text="@L["Institutions.OrthancPassword"]" Style="width:100%">
                             <ChildContent>
-                                <RadzenPassword @bind-Value="_newOrthancPassword" Placeholder="Lasă gol dacă fără autentificare" Style="width:100%" />
+                                <RadzenPassword @bind-Value="_newOrthancPassword" Placeholder="@L["Institutions.NoAuthPlaceholder"]" Style="width:100%" />
                             </ChildContent>
                         </RadzenFormField>
                     </RadzenColumn>
                 </RadzenRow>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                    <RadzenButton Text="Creare" ButtonStyle="ButtonStyle.Primary"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Institutions.Create"]" ButtonStyle="ButtonStyle.Primary"
                                   Click="@CreateInstitution" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
@@ -137,41 +138,41 @@
     @if (_editTarget is not null)
     {
         <RadzenCard Style="min-width:420px;max-width:600px;padding:2rem;">
-            <RadzenText Text="Editare instituție" TextStyle="TextStyle.H6" class="rz-mb-4" />
+            <RadzenText Text="@L["Institutions.Edit"]" TextStyle="TextStyle.H6" class="rz-mb-4" />
             <RadzenStack Gap="1rem">
-                <RadzenFormField Text="Denumire *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["Institutions.Name"]} *")" Style="width:100%">
                     <ChildContent>
                         <RadzenTextBox @bind-Value="_editName" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
-                <RadzenFormField Text="URL Orthanc *" Style="width:100%">
+                <RadzenFormField Text="@($"{L["Institutions.OrthancUrl"]} *")" Style="width:100%">
                     <ChildContent>
                         <RadzenTextBox @bind-Value="_editOrthancBaseUrl" Style="width:100%" />
                     </ChildContent>
                 </RadzenFormField>
                 <RadzenRow>
                     <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenFormField Text="User Orthanc" Style="width:100%">
+                        <RadzenFormField Text="@L["Institutions.OrthancUser"]" Style="width:100%">
                             <ChildContent>
-                                <RadzenTextBox @bind-Value="_editOrthancUsername" Placeholder="Gol = fără autentificare" Style="width:100%" />
+                                <RadzenTextBox @bind-Value="_editOrthancUsername" Placeholder="@L["Institutions.EmptyNoAuth"]" Style="width:100%" />
                             </ChildContent>
                         </RadzenFormField>
                     </RadzenColumn>
                     <RadzenColumn Size="12" SizeMD="6">
-                        <RadzenFormField Text="Parolă Orthanc" Style="width:100%">
+                        <RadzenFormField Text="@L["Institutions.OrthancPassword"]" Style="width:100%">
                             <ChildContent>
-                                <RadzenPassword @bind-Value="_editOrthancPassword" Placeholder="Gol = păstrează parola actuală" Style="width:100%" />
+                                <RadzenPassword @bind-Value="_editOrthancPassword" Placeholder="@L["Institutions.EmptyKeepPassword"]" Style="width:100%" />
                             </ChildContent>
                         </RadzenFormField>
                     </RadzenColumn>
                 </RadzenRow>
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
                     <RadzenCheckBox @bind-Value="_editIsActive" Name="isActive" />
-                    <RadzenLabel Text="Activ" Component="isActive" />
+                    <RadzenLabel Text="@L["Common.Active"]" Component="isActive" />
                 </RadzenStack>
                 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem" class="rz-mt-2">
-                    <RadzenButton Text="Anulare" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
-                    <RadzenButton Text="Salvare" ButtonStyle="ButtonStyle.Primary"
+                    <RadzenButton Text="@L["Common.Cancel"]" ButtonStyle="ButtonStyle.Light" Click="@CloseDialogs" />
+                    <RadzenButton Text="@L["Common.Save"]" ButtonStyle="ButtonStyle.Primary"
                                   Click="@UpdateInstitution" IsBusy="@_saving" />
                 </RadzenStack>
             </RadzenStack>
@@ -243,7 +244,7 @@
         if (string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newSlug) || 
             string.IsNullOrWhiteSpace(_newOrthancBaseUrl))
         {
-            NotificationService.Notify(NotificationSeverity.Warning, "Completați toate câmpurile obligatorii.");
+            NotificationService.Notify(NotificationSeverity.Warning, L["Institutions.FillRequired"]);
             return;
         }
 
@@ -255,13 +256,13 @@
 
         if (result is not null)
         {
-            NotificationService.Notify(NotificationSeverity.Success, $"Instituția '{result.Name}' a fost creată.");
+            NotificationService.Notify(NotificationSeverity.Success, L["Institutions.CreatedDetail", result.Name]);
             CloseDialogs();
             await LoadAsync();
         }
         else
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la crearea instituției. Verificați că slug-ul este unic.");
+            NotificationService.Notify(NotificationSeverity.Error, L["Institutions.CreateError"]);
         }
     }
 
@@ -278,13 +279,13 @@
 
         if (result is not null)
         {
-            NotificationService.Notify(NotificationSeverity.Success, "Instituția a fost actualizată.");
+            NotificationService.Notify(NotificationSeverity.Success, L["Institutions.Updated"]);
             CloseDialogs();
             await LoadAsync();
         }
         else
         {
-            NotificationService.Notify(NotificationSeverity.Error, "Eroare la actualizarea instituției.");
+            NotificationService.Notify(NotificationSeverity.Error, L["Institutions.UpdateError"]);
         }
     }
 }
